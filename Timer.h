@@ -1,5 +1,7 @@
 /*
  	Timer.h
+
+ 	Configures AVR Timers 0, 1, and 2 for Fast PWM or CTC modes.
  	
  	Copyright (C) 2021 Jeff Gregorio
  	
@@ -32,15 +34,21 @@
 #ifndef TIMER_h
 #define TIMER_h
 
-// =============================
-// ---------- Timer 0 ----------
-// =============================
+/*
+ * Timer 0, 8-bit 
+ */
 struct Timer0 {
 
+	/*
+	 * Constructor
+	 */
 	Timer0() : csbits(0) {
-    ; // Do nothing
+    	; // Do nothing
 	}
 
+	/*
+	 * Set prescaler to control PWM rate or CTC interrupt timing
+	 */
 	void set_prescaler(uint16_t prescaler) {
 		switch (prescaler) {
 			case 1:
@@ -62,6 +70,9 @@ struct Timer0 {
 		}
 	}
 
+	/*
+	 * Initialize in Fast PWM mode
+	 */
 	void init_pwm() {
 		DDRD |= (1 << PD6);	// Enable output on channel A (Port D, bit 6, or pin 6)
 		DDRD |= (1 << PD5);	// Enable output on channel B (Port D, bit 5, or pin 5)
@@ -73,6 +84,9 @@ struct Timer0 {
 		TCCR0B |= csbits;			// Set clock prescaler bits
 	}
 
+	/*
+	 * Initialize in CTC mode. Use ISR(TIMER0_COMPA_vect) {}.
+	 */
 	void init_ctc(uint8_t ocr0a) {
 		TCCR0A = 0;					// Clear control register A
 		TCCR0B = 0;					// Clear control register B
@@ -85,21 +99,33 @@ struct Timer0 {
 		sei();						// Enble interrupts
 	}
 
+	/*
+	 * Write PWM signal to OCR pins
+	 */
 	void pwm_write_a(uint8_t val) {	OCR0A = val; }
 	void pwm_write_b(uint8_t val) {	OCR0B = val; }
 
-	uint8_t csbits;
+	/*
+	 * Data
+	 */
+	uint8_t csbits;	// Prescaler bits
 };
 
-// =============================
-// ---------- Timer 1 ----------
-// =============================
+/*
+ * Timer 1, 16-bit 
+ */
 struct Timer1 {
 
+	/*
+	 * Constructor
+	 */
 	Timer1() : csbits(0) {
-    ; // Do nothing
+    	; // Do nothing
 	}
 
+	/*
+	 * Set prescaler to control PWM rate or CTC interrupt timing
+	 */
 	void set_prescaler(uint16_t prescaler) {
 		switch (prescaler) {
 			case 1:
@@ -121,6 +147,9 @@ struct Timer1 {
 		}
 	}
 
+	/*
+	 * Initialize in Fast PWM mode
+	 */
 	void init_pwm(uint8_t bit_res = 8) {
     	uint16_t icr = (1 << bit_res) - 1;
 		DDRB |= (1 << PB1);	// Enable output on channel A (Port B, bit 1, or pin 9)
@@ -136,6 +165,9 @@ struct Timer1 {
 		TCCR1B |= csbits;			// Set clock prescaler bits
 	}
 
+	/*
+	 * Initialize in CTC mode. Use ISR(TIMER1_COMPA_vect) {}.
+	 */
 	void init_ctc(uint16_t ocr1a) {
 		TCCR1A = 0;					// Clear control register A
 		TCCR1B = 0;					// Clear control register B
@@ -149,27 +181,39 @@ struct Timer1 {
 		sei();						// Enble interrupts
 	}
 
+	/*
+	 * Write PWM signal to OCR pins
+	 */
 	void pwm_write_a(uint16_t val) {	
     	OCR1AH = (val & 0xFF00) >> 8;
 	  	OCR1AL = val & 0xFF; 
 	}
 	void pwm_write_b(uint16_t val) {	
     	OCR1BH = (val & 0xFF00) >> 8;
-	  OCR1BL = val & 0xFF; 
+	 	OCR1BL = val & 0xFF; 
 	}
 
-	uint8_t csbits;
+	/*
+	 * Data
+	 */
+	uint8_t csbits;	// Prescaler bits
 };
 
-// =============================
-// ---------- Timer 2 ----------
-// =============================
+/*
+ * Timer 2, 8-bit
+ */
 struct Timer2 {
 
+	/*
+	 * Constructor
+	 */
 	Timer2() : csbits(0) {
-    ; // Do nothing
+    	; // Do nothing
 	}
 
+	/*
+	 * Set prescaler to control PWM rate or CTC interrupt timing
+	 */
 	void set_prescaler(uint16_t prescaler) {
 		switch (prescaler) {
 			case 1:
@@ -197,6 +241,9 @@ struct Timer2 {
 		}
 	}
 
+	/*
+	 * Initialize in Fast PWM mode
+	 */
 	void init_pwm() {
 		DDRD |= (1 << PD3);	// Enable output on channel A (Port D, bit 3, or pin 11)
 		DDRB |= (1 << PB3);	// Enable output on channel B (Port B, bit 3, or pin 3)
@@ -208,6 +255,9 @@ struct Timer2 {
 		TCCR2B |= csbits;			// Set clock prescaler bits
 	}
 
+	/*
+	 * Initialize in CTC mode. Use ISR(TIMER2_COMPA_vect) {}.
+	 */
 	void init_ctc(uint8_t ocr2a) {
 		TCCR2A = 0;					// Clear control register A
 		TCCR2B = 0;					// Clear control register B
@@ -220,10 +270,16 @@ struct Timer2 {
 		sei();						// Enble interrupts
 	}
 
+	/*
+	 * Write PWM signal to OCR pins
+	 */
 	void pwm_write_a(uint8_t val) {	OCR2A = val; }
 	void pwm_write_b(uint8_t val) {	OCR2B = val; }
 
-	uint8_t csbits;
+	/*
+	 * Data
+	 */
+	uint8_t csbits;	// Prescaler bits
 };
 
 #endif

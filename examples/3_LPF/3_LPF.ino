@@ -1,16 +1,26 @@
 /*
- * Hive76 Synth Workshop
- * =====================
- * Example 3: Low-pass filter for CV glide/portamento
+ * LibAG Example 3: Filtered square wave (low-pass and high-pass)
+ * --------------------------------------------------------
+ * - ADC conversions and processing triggered by Timer 0 at 10kHz
+ * - Waveform frequency controlled with V [0-5V] at ADC ch 0 (Arduino pin A0)
+ * - Cutoff frequency controlled with CV [0-5]V at ADC ch 1 (Arduino pin A1)
+ * - Outputs LP and HP outputs via 10-bit PWM to OCR1A and OCR1B (Arduino pins 9 and 10)
+ * - Sample timing monitored at PD3 and PD2 (Arduino pins 3, and 2)
+ * 
+ * - Recommend a Sallen-Key low pass reconstruction filter on pin OCR1A
+ *   with fc ~= 313Hz for approx -50db attenuation at fs/2. Use
+ *   R1 = R2 = 4.7k and C1 = C2 = 0.1uF.
  */
 
 #include "Timer.h"
 #include "ADCAuto.h"
+#include "Oscillator.h"
 #include "IIR.h"
-#include "ParamTable.h"
+#include "PgmTable.h"
 #include "FixedPoint.h"   
 
-#include "tables/coeff16x10_1000.h"
+#include "tables/exp1000_u16x1024.h"
+#include "tables/exp10000_u16x1024.h"
 
 /* 
  * Timer 0 determines sample rate (fs = 16e6/8/200 = 10kHz)
@@ -34,25 +44,37 @@ const uint8_t T1_RES = 10;    // Bit resolution (ICR = (1 << T1_RES)-1)
 const uint8_t ADC_PS = 64;
 
 /*
- * Peripheral controllers
+ * Peripheral drivers
  */
 Timer0 timer0;    // Timer 0 (CTC, sample rate)
 Timer1 timer1;    // Timer 1 (PWM, output)
-ADCAuto adc(2);   // ADC (prameter inputs)
+ADCTimer0 adc(2); // ADC (prameter inputs)
 
 /*
- * Single pole low pass filter
- * - Used to slow changes to CV on pin A0
+ * Sawtooth wave oscillator
+ * - Phasor16 --> 16-bit phase/frequency resolution
  */
+Phasor16 lfo;
+
+/* 
+*  Exponential frequency lookup table [0.2, 200] Hz
+*  - exp1000_u16x1024 --> Factor of 1000 sweep, 16-bit table, 10 bit length 
+*  - 200.0f/fs * 0xFFFF --> max freq 200Hz (normalized to 16-bit resolution)
+*/
+PgmTable16 freq_table(exp1000_u16x1024, 200.0f / fs * 0xFFFF);
+
+/*
+ * One pole low pass filter
+ */ 
 OnePole16 lpf;
 
 /*
- * Exponential filter coefficient lookup table [0.2, 200] Hz
- * - coeff16x10_1000 --> 16-bit table, 10 bit length, factor of 1000 sweep 
- *  - 200.0f/fs * 0xFFFF --> max freq 200Hz (normalized to 16-bit resolution)
+ * Exponential frequency lookup table [0.2, 2000] Hz
+ * - The UQ16 frequency is a decent approximation for the filter coefficient
+ * - exp10000_u16x1024 --> Factor of 10000 sweep, unsigned 16-bit table, 10 bit length
+ *  - 2000.0f/fs * 0xFFFF --> max freq 2000Hz (normalized to 16-bit resolution)
  */
-const float fc_max = TWO_PI * 200.0 / fs;
-ParamTable16 coeff_table(coeff16x10_1000, fc_max / (fc_max + 1) * 0xFFFF);
+PgmTable16 coeff_table(exp10000_u16x1024, 2000.0f/fs * 0xFFFF);
 
 /*
  * Setup
@@ -72,7 +94,7 @@ void setup() {
 
   // ADC
   adc.set_prescaler(ADC_PS);  
-  adc.init_timer0();
+  adc.init();
 }
 
 /*
@@ -94,7 +116,8 @@ ISR(TIMER0_COMPA_vect) {
  */
 ISR(ADC_vect) {
 
-  uint16_t sample;
+  uint16_t u;
+  int16_t s, a, b;
 
   // Toggle/set timing pins
   PORTD ^= (1 << PD3);  
@@ -103,15 +126,20 @@ ISR(ADC_vect) {
   // Update ADC conversions
   adc.update();
 
-  // Set the LPF cutoff freq from the lookup table
-  // - Reverse CV direction so CCW increases glide time (decreases cutoff)
-  lpf.coeff = coeff_table.lookup(1023 - adc.result[0]);
+  // Set the LFO rate from the lookup table
+  lfo.freq = freq_table.lookup_scale(adc.results[0]);
+  lpf.coeff = coeff_table.lookup_scale(adc.results[1]);
 
-  // Render and scale the LFO
-  sample = lpf.process(adc.result[1] << 6);
+  // Render LFO, convert to square wave
+  u = lfo.render();
+  s = u > 0x7FFF ? -0x8000 : 0x7FFF; 
+  
+  a = lpf.process(s);   // Low returned from processing method
+  b = lpf.hp;           // High pass output
 
   // Right-shift by 6 bits for 10-bit output
-  timer1.pwm_write_a(sample >> 6);   
+  timer1.pwm_write_a(a + 0x8000 >> 6);
+  timer1.pwm_write_b(b + 0x8000 >> 6);  
 
   PORTD &= ~(1 << PD2);
 }

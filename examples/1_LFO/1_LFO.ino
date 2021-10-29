@@ -1,17 +1,25 @@
 /*
- * Hive76 Synth Workshop
- * =====================
- * Example 1: Sinusoidal Low Frequency Oscillator
+ * LibAG Example 1: Sinusoidal Low Frequency Oscillator
+ * ----------------------------------------------------
+ * - ADC conversions and processing triggered by Timer 0 at 10kHz
+ * - Outputs a sine wave via 10-bit PWM to OCR1A (Arduino pin 9)
+ * - Frequeny controlled with CV [0-5]V at ADC ch 0 (Arduino pin A0)
+ * - Amplitude controlled with CV [0-5]V at ADC ch 1 (Arduino pin A1)
+ * - Sample timing monitored at PD3 and PD2 (Arduino pins 3, and 2)
+ * 
+ * - Recommend a Sallen-Key low pass reconstruction filter on pin OCR1A
+ *   with fc ~= 313Hz for approximately -50db attenuation at fs/2. Use
+ *   R1 = R2 = 4.7k and C1 = C2 = 0.1uF.
  */
 
 #include "Timer.h"
 #include "ADCAuto.h"
 #include "Oscillator.h"
-#include "ParamTable.h"
+#include "PgmTable.h"
 #include "FixedPoint.h"   
 
-#include "tables/sine16x10.h"
-#include "tables/exp16x10_1000.h"
+#include "tables/sine_u16x1024.h"
+#include "tables/exp1000_u16x1024.h"
 
 /* 
  * Timer 0 determines sample rate (fs = 16e6/8/200 = 10kHz)
@@ -35,26 +43,26 @@ const uint8_t T1_RES = 10;    // Bit resolution (ICR = (1 << T1_RES)-1)
 const uint8_t ADC_PS = 64;
 
 /*
- * Peripheral controllers
+ * Peripheral drivers
  */
 Timer0 timer0;    // Timer 0 (CTC, sample rate)
 Timer1 timer1;    // Timer 1 (PWM, output)
-ADCAuto adc(2);   // ADC (prameter inputs)
+ADCTimer0 adc(2); // ADC (prameter inputs)
 
 /*
  * Sine wave table oscillator
  * - Wavetable16 --> 16-bit phase/frequency resolution
- * - sine16x10 --> 16-bit amplitude resolution, 10-bit length
- * - 6 --> shift phasor by 6 bits to read from table
+ * - sine_u16x1024 --> 16-bit amplitude resolution, 10-bit length
+ * - 6 --> shift 16-bit phasor by 6 bits to read from table
  */
-Wavetable16 lfo(sine16x10, 6);
+Wavetable16 lfo(sine_u16x1024, 6);
 
 /* 
  *  Exponential frequency lookup table [0.2, 200] Hz
- *  - exp16x10_1000 --> 16-bit table, 10 bit length, factor of 1000 sweep 
+ *  - exp1000_u16x1024 --> Factor of 1000 sweep, 16-bit table, 10 bit length 
  *  - 200.0f/fs * 0xFFFF --> max freq 200Hz (normalized to 16-bit resolution)
  */
-ParamTable16 freq_table(exp16x10_1000, 200.0f/fs * 0xFFFF);
+PgmTable16 freq_table(exp1000_u16x1024, 200.0f/fs * 0xFFFF);
 
 /*
  * Setup
@@ -74,7 +82,7 @@ void setup() {
 
   // ADC
   adc.set_prescaler(ADC_PS);  
-  adc.init_timer0();
+  adc.init();
 }
 
 /*
@@ -106,11 +114,11 @@ ISR(ADC_vect) {
   adc.update();
 
   // Set the LFO rate from the lookup table
-  lfo.freq = freq_table.lookup(adc.result[0]);
+  lfo.freq = freq_table.lookup_scale(adc.results[0]);
 
   // Render and scale the LFO
-  sample = lfo.render();                        // 16-bit
-  sample = qmul16(sample, adc.result[1] << 6);  // 16-bit x 16-bit = 16-bit
+  sample = lfo.render();                        
+  sample = qmul16(sample, adc.results[1] << 6);  
 
   // Right-shift by 6 bits for 10-bit output
   timer1.pwm_write_a(sample >> 6);   

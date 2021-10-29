@@ -1,5 +1,7 @@
 /*
-   MIDIDispatcher.h
+  MIDIDispatcher.h
+
+  Basic MIDI message handling and routing to user-supplied callbacks.
   
   Copyright (C) 2021 Jeff Gregorio
   

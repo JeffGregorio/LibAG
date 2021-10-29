@@ -1,5 +1,7 @@
 /*
   DACSPI.h
+
+  Configures SPI interface for generic SPI DAC or the MCP4921/2
   
   Copyright (C) 2021 Jeff Gregorio
   
@@ -33,13 +35,13 @@
  *           MCP4922            *
  *         _____ _____          *
  *        |     U     |         *
- *    VDD[| 1       8 |]VOUTA   *
- *     NC[| 2       7 |]VREFA   *
- *    CS'[| 3       6 |]AVSS    *
- *    SCK[| 4       5 |]VREFB   *
- *    SDI[| 2       7 |]VOUTB   *
- *     NC[| 3       6 |]SHDN'   *
- *     NC[| 4       5 |]LDAC'   *
+ *    VDD[| 1      14 |]VOUTA   *
+ *     NC[| 2      13 |]VREFA   *
+ *    CS'[| 3      12 |]AVSS    *
+ *    SCK[| 4      11 |]VREFB   *
+ *    SDI[| 5      10 |]VOUTB   *
+ *     NC[| 6       9 |]SHDN'   *
+ *     NC[| 7       8 |]LDAC'   *
  *        |___________|         *
  *                              *
 \** ========================== **/  
@@ -88,8 +90,16 @@
  */
 struct DACSPI {
 
-    DACSPI() {};
+    /*
+     * Constructor
+     */
+    DACSPI() {
+      ; // Do nothing
+    };
 
+    /*
+     * Initialize SPI peripheral. Use SS pin as output.
+     */
     void init() {
       DDRB |= (1 << SS) | (1 << MOSI) | (1 << SCK); // Output pins
       DDRD |= (1 << PD0);
@@ -100,6 +110,9 @@ struct DACSPI {
       SPCR |= (1 << SPE);     // Enable SPI
     }
 
+    /*
+     * 8-bit write
+     */
     void write_u8(uint8_t sample) {
       PORTB &= ~(1 << SS);            // Pull SS low to select chip
       SPDR = sample;                  // Load data
@@ -107,6 +120,9 @@ struct DACSPI {
       PORTB |= (1 << SS);             // Set SS high to release
     }
 
+    /*
+     * 16-bit write
+     */
     void write_u16(uint16_t sample) {
       PORTB &= ~(1 << SS);              // Reset SS
       SPDR = (sample & (0xFF00)) >> 8;  // Write MSB
@@ -117,31 +133,49 @@ struct DACSPI {
     }
 };
 
+/*
+ * MCP4921 12-bit SPI DAC
+ */
 struct MCP4921 : public DACSPI {
 
-    MCP4921() : DACSPI() {};
+    /*
+     * Constructor
+     */
+    MCP4921() : DACSPI() {
+      ; // Do nothing
+    };
 
-    // MCP4921 control word:
-    // 0 BUF GA' SHDN' D11 D10 D9 D8 D7 D6 D5 D4 D3 D2 D1 D0
+    /* 
+     * Write MCP4921 control word:
+     * 0 BUF GA' SHDN' D11 D10 D9 D8 D7 D6 D5 D4 D3 D2 D1 D0
+     */
     void write(uint16_t sample) {
       write_u16(0b0101000000000000 | sample);
     }
 };
 
+/*
+ * MCP4922 Dual 12-bit SPI DAC
+ */
 struct MCP4922 : public DACSPI {
 
-    MCP4922() : DACSPI() {};
+    /*
+     * Constructor
+     */
+    MCP4922() : DACSPI() {
+      ; // Do nothing
+    };
 
-    // MCP4922 control word:
-    // A'/B BUF GA' SHDN' D11 D10 D9 D8 D7 D6 D5 D4 D3 D2 D1 D0
+    /* 
+     * Write MCP4922 control word:
+     * A'/B BUF GA' SHDN' D11 D10 D9 D8 D7 D6 D5 D4 D3 D2 D1 D0
+     */
     void write_a(uint16_t sample) {
       write_u16(0b0101000000000000 | sample);
     }
-
     void write_b(uint16_t sample) {
       write_u16(0b1101000000000000 | sample);
     }
 };
-
 
 #endif

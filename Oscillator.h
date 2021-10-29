@@ -1,6 +1,8 @@
 /*
  * Oscillator.h
  * 
+ * UQ16 Fixed point sawtooth and wavetable oscillators.
+ * 
  * Copyright (C) 2021 Jeff Gregorio
  * 
  * This program is free software: you can redistribute it and/or modify
@@ -20,8 +22,7 @@
 #ifndef OSCILLATOR_H
 #define OSCILLATOR_H
 
-/* 16-bit Fixed Point phasor */
-/* ========================= */
+/* 16-bit Fixed Point phasor
 /*  - Periodic ramp (phase accumulator) in range [0, 2*pi] = [0, 2^16-1]
  *  - Normalized frequency range [-pi, pi] = [-2^15, 2^15-1]
  *    - Freq > 0 --> ascending ramps
@@ -34,13 +35,18 @@ struct Phasor16 {
         ; // Do nothing
     }
 
-    // Render a single naive sawtooth sample
+    /*
+     * Render a naive sawtooth sample
+     */
     uint16_t render() {
         phasor = phase;
         phase += freq;
         return phasor;
     }
 
+    /*
+     * Data
+     */
     uint16_t phase;         // Phase accumulator in [0, 2^16]
     int16_t freq;           // Phase increment in [-2^15, 2^15-1]
     uint16_t phasor;        // Naive sawtooth 
@@ -48,24 +54,30 @@ struct Phasor16 {
 };
 
 /* Wavetable oscillator
-/* =============================== 
  *  Wave table lookup using a Phasor16's output scaled to the table length via
  *  right shift of specified length
  */
 struct Wavetable16 : public Phasor16 {
 
-    // Create with specified output bit resolution
+    /*
+     * Constructor for user-provided table and right shift length
+     */
     Wavetable16(uint16_t *table, uint8_t shift) : Phasor16(), table(table), shift(shift) {
         ; // Do nothing
     }
 
-    // Render a sine wave sample
+    /*
+     * Render a sample from the wavetable
+     */
     uint16_t render() {
         sample = (uint16_t)pgm_read_ptr(&table[0] + (phasor >> shift));
         Phasor16::render();
         return sample;
     }
 
+    /*
+     * Data
+     */
     uint16_t *table;
     uint8_t shift;
     uint16_t sample;

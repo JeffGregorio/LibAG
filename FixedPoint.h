@@ -1,5 +1,8 @@
 /*
  * FixedPoint.h
+ *
+ * Fixed point math utility functions. Includes unsigned and signed
+ * 8, 16, and 32-bit saturating addition, subtraction, and Q multiplicaiton.
  * 
  * Copyright (C) 2021 Jeff Gregorio
  * 
@@ -91,7 +94,7 @@ int32_t addsat32(uint32_t a, int32_t b) {
  * Saturating addition (signed)
  * - First conditional checks for potential overflow (operands of same sign)
  * - Second conditional checks for overflow (result different sign than operands)
- * - Ternary saturation direction based on operand sign
+ * - Ternary saturates with direction based on operand sign
  */
 // 0.9 - 1.1us
 int8_t addsat8(int8_t a, int8_t b) {

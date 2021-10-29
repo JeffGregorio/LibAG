@@ -1,5 +1,7 @@
 /*
  * Envelope.h
+ *
+ * 32-bit fixed point linear envelope generator.
  * 
  * Copyright (C) 2021 Jeff Gregorio
  * 
@@ -20,7 +22,7 @@
 #ifndef ENVELOPE_H
 #define ENVELOPE_H
 
-struct ASR32 {
+struct ASR16 {
 
   /*
    * Enumeration of envelope states
@@ -35,8 +37,7 @@ struct ASR32 {
   /*
    * Constructor
    */
-  ASR32() : state(EnvStateIdle), phase(0), len(1), value(0), slope(0), 
-            atk_len(2), sus_lev(0xFFFFFFFF), rel_len(2) {
+  ASR16() : state(EnvStateIdle), value(0), atk_rate(0x7FFF), rel_rate(0x7FFF) {
     ;   // Do nothing
   }
 
@@ -45,78 +46,58 @@ struct ASR32 {
    */
   void gate(bool on) {
     if (on) 
-      begin_atk();
-    else    
-      begin_rel();
+      state = EnvStateAttack;
+    else 
+      state = EnvStateRelease;
   }
 
   /*
    * Render a sample after handling end of state conditions
    */
   uint32_t render() {
-    if (phase++ == len-1) {
-      switch (state) {
-        case EnvStateIdle:
-        case EnvStateRelease:
-          begin_idle();
-          break;
-        case EnvStateAttack:
-        case EnvStateSustain:
-          begin_sus();
-          break;
-        default:
-          break;
-      }
+    uint16_t new_val;
+    switch (state) {
+      // Idle
+      case EnvStateIdle:
+        break;
+      // Attack
+      case EnvStateAttack:
+        new_val = value + atk_rate;
+        if (new_val < value) {    // End attack after overflow
+          value = 0xFFFF;
+          state = EnvStateSustain;
+        }
+        else
+          value = new_val;
+      // Sustain
+      case EnvStateSustain:
+        break;
+      // Release
+      case EnvStateRelease:
+        new_val = value - rel_rate;
+        if (new_val > value) {    // End release after unverflow
+          value = 0;
+          state = EnvStateIdle;
+        }
+        else 
+          value = new_val;
+        break;
+      // Unknown
+      default:
+        break;
     }
-    value += slope;
     return value;
-  }
-
-  /*
-   * Internal state handlers
-   */
-  void begin_idle() {
-    state = EnvStateIdle;
-    len = 0xFFFFFFFF;
-    phase = 0;
-    slope = 0;
-  }
-
-  void begin_atk() {
-    state = EnvStateAttack;
-    len = atk_len;
-    phase = 0;
-    slope = (sus_lev - value) / atk_len;
-  }
-  
-  void begin_sus() {
-    state = EnvStateSustain;
-    len = 0xFFFFFFFF;
-    phase = 0;
-    slope = 0;
-  }
-
-  void begin_rel() {
-    state = EnvStateRelease;
-    len = rel_len;
-    phase = 0;
-    slope = -(value / rel_len);
   }
 
   /*
    * Data
    */
   uint8_t state;      // Current state
-  uint32_t phase;     // Phase in current state
-  uint32_t len;       // Length of current state
-
-  int32_t value;      // Current output value
-  int32_t slope;      // Current slope
+  uint16_t value;     // Current output value
       
   // Parameters (directly settable)
-  uint32_t atk_len;   // Attack state length in samples
-  uint32_t sus_lev;   // Sustain level
-  uint32_t rel_len;   // Release state length in samples  
+  uint16_t atk_rate;  // Normalized attack rate
+  uint16_t rel_rate;  // Normalized release rate 
 };
 
 #endif
