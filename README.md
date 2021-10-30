@@ -11,7 +11,7 @@ This library is designed to be an accessible entry point for Arduino hobbyists a
 The library offers a small set of peripheral drivers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with the external MCP4921/2 12-bit DAC. Rudimentary knowledge of these peripherals is assumed. 
 
 It also includes a small set of digital signal processing (DSP) objects and utility functions for efficient fixed point signal synthesis and processing, including table-based approaches to sinusoidal synthesis, exponential parameter control, and filter coefficients.
-d
+
 Memory use is minimized by storing pre-computed, normalized tables in flash memory and rescaling outputs. Several exponential tables are provided alongside a python script for generating others. 
 
 ## Digital to Analog Conversion
@@ -21,9 +21,11 @@ The library provides two methods for generating output.
 ### PWM (`Timer.h`)
 The classes `Timer0`, `Timer1`, and `Timer2` each have two associated pulse width modulation (PWM) channels mapped to the AVR's associated `OCRnA` and `OCRnB` pins, where `n` is the number of the timer. The PWM rate for timers 0 and 2 are determined by the system clock, the timer's prescaler, and 8-bit timer resolution, i.e. <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^8">. 
 
-This mode is configured with `Timer0::set_prescaler()`, with prescaler options including `{1, 8, 64, 256, 1024}`, and `Timer0::init_pwm()`. The 8-bit output value is written to pin OCR0A using `Timer0::pwm_write_a()` and OCR0B `Timer0::pwm_write_b()`. Timer 2 is equivalent with additional prescaler options including `{1, 8, 32 64, 128, 256, 1024}`.  
+Prescalers are set with the timer's `init_pwm()` methods. Options for `Timer0` and `Timer1` include `{1, 8, 64, 256, 1024}`. Timer 2 has additional prescaler options including `{1, 8, 32 64, 128, 256, 1024}`. 
 
-The 16-bit `Timer1` allows trading decreased PWM rate for increased resolution. Its `init_pwm()` method takes a bit resolution parameter `K` that sets the value at which the timer resets to a power of two, yielding K-bit PWM at rate <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^K">. 
+Each timer can be used in fast PWM mode by calling its `init_pwm()` method. Output values are written to pin OCRnA using `pwm_write_a()` and OCRnB `pwm_write_b()`, using 8-bit values for `Timer0` and `Timer2`, and up to 16-bit values for `Timer1`. 
+
+The 16-bit `Timer1` allows trading decreased PWM rate for increased resolution. Its `init_pwm()` method takes a bit resolution parameter `N` that sets the value at which the timer resets to a power of two, yielding N-bit PWM at rate <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^N">. 
 
 Note it is necessary to use PWM rates greater than the sample rate, which limits output resolution. This rate/resolution trade-off can be eliminated by using an external SPI DAC.
 
@@ -185,7 +187,7 @@ For example, at <img src="https://render.githubusercontent.com/render/math?math=
 
 Thus, the sample rate must be known at the time the table is generated to obtain accurate cutoff frequencies. 
 
-A more flexible option for cutoff frequencies much less than <img src="https://render.githubusercontent.com/render/math?math=\frac{f_s}{2}"> is to note that each coefficient table is approximately exponential for low frequencies, where the frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> serves as a usable approximation of <img src="https://render.githubusercontent.com/render/math?math=\alpha">. This apprximation yields a stable filter for <img src="https://render.githubusercontent.com/render/math?math=\omega_n < 1">, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
+A more flexible option for cutoff frequencies much less than <img src="https://render.githubusercontent.com/render/math?math=\frac{f_s}{2}"> is to note that each coefficient table is approximately exponential for low frequencies, where the frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> serves as a usable approximation of <img src="https://render.githubusercontent.com/render/math?math=\alpha">. This approximation yields a stable filter for <img src="https://render.githubusercontent.com/render/math?math=\omega_n < 1">, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
 
 ![Coefficients and Frequency Response](/images/coeffs_light.gif)
 
