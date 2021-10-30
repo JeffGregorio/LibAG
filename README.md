@@ -105,23 +105,19 @@ Note that due to the division via right shift, table lengths must be a power of 
 
 ### Exponential
 
-Exponential parameter tables are generated and normalized to the full UQ16 range so that they can be dynamically re-scaled by a `PgmTable16` instance using a UQ16 scaling factor computed at run time. In this way, a single normalized table can be used by multiple `PgmTable16` instances with different scaling factors. In addition, scaling factors which depend on the sample rate (such as Q16 frequencies) do not require tables to be re-generated if the sample rate changes. 
-
-Exponential tables take the form
+Exponential tables of length N can be generated over a nonzero range <img src="https://render.githubusercontent.com/render/math?math=(e_0, e_1)"> using
 
 <img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}"> 
 
 where 
 
-<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[\frac{1}{N-1}]{\frac{e_1}{e_0}}">
+<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[N-1]{\frac{e_1}{e_0}}">
 
-<img src="https://render.githubusercontent.com/render/math?math=(e_0, e_1)"> are the endpoints of the exponential curve, and n is an unsigned integer in the range [0, N-1], typically the result of an ADC conversion intended to control an exponential sweep of a parameter. 
-
-Thus exponential tables are meant to be generated with specified ratios <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">, normalized to 16-bit resolution, and UQ16 scaling factors used to set the upper bound dynamically. 
+Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF`, and dynamically re-scale the output to a maximum value less than `0xFFFF` using a Q multiply. This places the minimum value at <img src="https://render.githubusercontent.com/render/math?math=\frac{0xFFFF}{ratio}">, where the ratio is <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">.
 
 ![ExpTable](/images/exp.png)
 
-Thus, unsigned 16-bit exponential tables of length 1024 are generated at the command line using
+Thus, `tablegen` generates exponential tables with specified ratios 
 
 ```
 > python tablegen.py exp <ratio>
@@ -135,7 +131,9 @@ Other data types and lengths can be generated using optional arguments as follow
 
 Where `type` is one of `{u8, u16, u32}` indicating the size of an unsigned integer type.
 
-A scaling factor for the normalized table is determined by the user. For example, a 10-bit ADC reading can be used to control an exponential Q16 frequency sweep in the range <img src="https://render.githubusercontent.com/render/math?math=[0.2, 200.0] Hz"> using
+The table can be used with a `PgmTable16` instance's `lookup_scale()` method. The scaling factor can be determined at startup or changed dynamically. 
+
+For example, a 10-bit ADC reading can be used to control an exponential Q16 frequency sweep in the range <img src="https://render.githubusercontent.com/render/math?math=[0.2, 200.0] Hz"> using
 
 ```C
 #include "tables/exp1000_u16x1024.h"
@@ -191,10 +189,10 @@ A more flexible option for cutoff frequencies much less than <img src="https://r
 
 ![Coefficients and Frequency Response](/images/coeffs_light.gif)
 
-This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses. 
+This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses over a cutoff frequency range of apprxoimately <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz">. 
 
 #### Option 1
-The following coefficient table yields cutoff frequencies in <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz"> as long as <img src="https://render.githubusercontent.com/render/math?math=f_s = 16kHz">
+The following yields accurate cutoff frequencies over its range as long as <img src="https://render.githubusercontent.com/render/math?math=f_s = 16kHz">
 
 ```
 > python tablegen.py coeff z 1.25e-5 0.125
@@ -208,7 +206,7 @@ onepole.coeff = coeff_table.lookup(adc_value);
 ```
 
 #### Option 2
-The following coefficient table yields cutoff frequencies in <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz"> with a variable sample rate. Cutoff frequency inaccuracy increases with frequency. 
+The following yields less accurate cutoff frequencies toward its maximum value, but sample rates can be changed without regenerating the table. 
 
 ```
 > python tablegen.py exp 10000
@@ -224,7 +222,7 @@ onepole.coeff = coeff_table.lookup_scale(adc_value);
 ```
 
 #### Option 3
-The following coefficient table yields cutoff frequencies in <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz"> with a variable sample rate. Cutoff frequency inaccuracy decreases with frequency, as the maximum table value is mapped to the exact coefficient value (obtained from the z-domain frequency response) at the maximum frequency. 
+The following yields less accurate cutoff frequencies toward its minimum value, but sample rates can be changed without regenerating the table. 
 
 ```
 > python tablegen.py exp 10000
