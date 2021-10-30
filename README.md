@@ -11,7 +11,7 @@ This library is designed to be an accessible entry point for Arduino hobbyists a
 The library offers a small set of peripheral drivers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with the external MCP4921/2 12-bit DAC. Rudimentary knowledge of these peripherals is assumed. 
 
 It also includes a small set of digital signal processing (DSP) objects and utility functions for efficient fixed point signal synthesis and processing, including table-based approaches to sinusoidal synthesis, exponential parameter control, and filter coefficients.
-
+d
 Memory use is minimized by storing pre-computed, normalized tables in flash memory and rescaling outputs. Several exponential tables are provided alongside a python script for generating others. 
 
 ## Digital to Analog Conversion
@@ -19,11 +19,11 @@ Memory use is minimized by storing pre-computed, normalized tables in flash memo
 The library provides two methods for generating output. 
 
 ### PWM (`Timer.h`)
-The classes `Timer0`, `Timer1`, and `Timer2` each have two associated pulse width modulation (PWM) channels mapped to the AVR's associated `OCRnA` and `OCRnB` pins, where `n` is the number of the timer. The PWM rate for timers 0 and 2 are determined by the system clock, the timer's prescaler, and 8-bit timer resolution, i.e. <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=\frac{16MHz}{\frac{prescaler}{2^{8}}">. 
+The classes `Timer0`, `Timer1`, and `Timer2` each have two associated pulse width modulation (PWM) channels mapped to the AVR's associated `OCRnA` and `OCRnB` pins, where `n` is the number of the timer. The PWM rate for timers 0 and 2 are determined by the system clock, the timer's prescaler, and 8-bit timer resolution, i.e. <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^8">. 
 
 This mode is configured with `Timer0::set_prescaler()`, with prescaler options including `{1, 8, 64, 256, 1024}`, and `Timer0::init_pwm()`. The 8-bit output value is written to pin OCR0A using `Timer0::pwm_write_a()` and OCR0B `Timer0::pwm_write_b()`. Timer 2 is equivalent with additional prescaler options including `{1, 8, 32 64, 128, 256, 1024}`.  
 
-The 16-bit `Timer1` allows trading decreased PWM rate for increased resolution. Its `init_pwm()` method takes a bit resolution parameter `K` that sets the value at which the timer resets to a power of two, yielding K-bit PWM at rate <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=\frac{16MHz}{\frac{prescaler}{2^{K}}">. 
+The 16-bit `Timer1` allows trading decreased PWM rate for increased resolution. Its `init_pwm()` method takes a bit resolution parameter `K` that sets the value at which the timer resets to a power of two, yielding K-bit PWM at rate <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^K">. 
 
 Note it is necessary to use PWM rates greater than the sample rate, which limits output resolution. This rate/resolution trade-off can be eliminated by using an external SPI DAC.
 
@@ -35,13 +35,13 @@ The class `DACSPI` provides a generic SPI interface, which is parent to `MCP4921
 
 It is often advantageous to have input and output conversions synced to the same rate or multiples of one another. Thus, processing may best be accomplished in the interrupt service routine `ISR(ADC_vec)`, which is called following ADC conversions. Classes defined in `ADCAuto.h` provide a number of ways in which ADC conversions can be triggered automatically. Each is instantiated with a specified number of channels to scan sequentially, up to 6 or 8 on the Atmega328's 28 and 32-pin variants, respectively. 
 
-Each has a `set_prescaler()` method taking values `{2, 4, 8, 16, 32, 64, 128}`. Note that the AVR datasheet recommends the ADC clock <img src="https://render.githubusercontent.com/render/math?math=CLK_{ADC}=\frac{16MHz}{prescaler}"> be kept under `200kHz` for full 10-bit resolution, and under `1MHz` in all cases. 
+Each has a `set_prescaler()` method taking values `{2, 4, 8, 16, 32, 64, 128}`. Note that the AVR datasheet recommends ADC clock <img src="https://render.githubusercontent.com/render/math?math=CLK_{ADC}=16MHz/prescaler<200kHz"> for full 10-bit resolution, and <img src="https://render.githubusercontent.com/render/math?math=CLK_{ADC}<1MHz"> in all cases. 
 
 Each class has an `init()` method, and an `update()` method that must be called from the `ISR(ADC_vec)` routine to convert the next channel in sequence. Conversions from any channel can then be retrieved from the instance's `results` array. 
 
-The ADC can be configured in free-running mode using `ADCFreeRunning` at a rate determined by the system clock, its prescaler, and the thirteen clock cycles required to complete a conversion <img src="https://render.githubusercontent.com/render/math?math=f_{ADC} = \frac{16MHz}{\frac{prescaler}{13}}">. Thus, the free-running rate determines the maximum possible sample rate for a given system clock and ADC prescaler. 
+The ADC can be configured in free-running mode using `ADCFreeRunning` at a rate determined by the system clock, its prescaler, and the thirteen clock cycles required to complete a conversion <img src="https://render.githubusercontent.com/render/math?math=f_{ADC}=16MHz/prescaler/13">. Thus, the free-running rate determines the maximum possible sample rate for a given system clock and ADC prescaler. 
 
-Rates less than the maximum can be accomplished by triggering conversions using Timer 0's CTC mode with `ADCTimer0`. Note that `Timer0` must be independently configured in CTC mode with `Timer0::set_prescaler()` and `Timer0::init_ctc()`, providing the prescaler and an 8-bit OCR0A value, respectively. The `ISR(Timer0_COMPA_vect)` must be declared as well, which results in `ISR(ADC_vect)` being called at a rate <img src="https://render.githubusercontent.com/render/math?math=f_{ADC} = \frac{16MHz}{\frac{prescaler_{Timer0}}{OCR0A}}">. 
+Rates less than the maximum can be accomplished by triggering conversions using Timer 0's CTC mode with `ADCTimer0`. Note that `Timer0` must be independently configured in CTC mode with `Timer0::set_prescaler()` and `Timer0::init_ctc()`, providing the prescaler and an 8-bit OCR0A value, respectively. The `ISR(Timer0_COMPA_vect)` must be declared as well, which results in `ISR(ADC_vect)` being called at a rate <img src="https://render.githubusercontent.com/render/math?math=f_{ADC}=16MHz/prescaler_{Timer0}/OCR0A">. 
 
 The ADC can also be triggered on the rising edge of an external clock signal on the INT0 pin using `ADCInt0`. 
 
@@ -51,14 +51,13 @@ Fixed point formats are typically denoted as QM.N for signed values or UQM.N uns
 
 ## Note on frequency normalization
 
-Processing in discrete time imposes an upper frequency bound <img src="https://render.githubusercontent.com/render/math?math=
-|f| < \frac{f_s}{2}"> dictated by the Nyquist-Shannon sampling theorem. That is, we cannot capture, process, or synthesize any frequency whose magnitude is greater than half the sample rate.
+Processing in discrete time imposes an upper frequency bound <img src="https://render.githubusercontent.com/render/math?math=|f|<\frac{f_s}{2}"> dictated by the Nyquist-Shannon sampling theorem. That is, we cannot capture, process, or synthesize any frequency whose magnitude is greater than half the sample rate.
 
-Thus, the frequency interval <img src="https://render.githubusercontent.com/render/math?math=(-\frac{f_s}{2}, \frac{f_s}{2}) Hz"> is typically mapped onto the interval <img src="https://render.githubusercontent.com/render/math?math=(-\pi, pi) rad"> for correspondence with the domain of periodic functions such as sin, cos, and the complex exponential. This is done using the function 
+Thus, the frequency interval <img src="https://render.githubusercontent.com/render/math?math=(-\frac{f_s}{2}, \frac{f_s}{2}) Hz"> is typically mapped onto the interval <img src="https://render.githubusercontent.com/render/math?math=(-\pi, \pi)rad"> for correspondence with the domain of periodic functions such as sin, cos, and the complex exponential. This is done using the function 
 
 <img src="https://render.githubusercontent.com/render/math?math=\omega_n(f) = 2\pi\frac{f}{f_s}"> 
 
-and ensuring the magnitude of frequency <img src="https://render.githubusercontent.com/render/math?math=f"> never excedes <img src="https://render.githubusercontent.com/render/math?math=frac{f_s}{2}">. 
+and ensuring the magnitude of frequency <img src="https://render.githubusercontent.com/render/math?math=f"> never excedes <img src="https://render.githubusercontent.com/render/math?math=\frac{f_s}{2}">. 
 
 In a fixed point context, it is advantageous to redefine this domain according to the resolution of an integer type, as single periods of periodic functions can be stored in lookup tables with integer length, and we can use integer overflow to guarantee we stay within this domain. 
 
@@ -104,15 +103,15 @@ Note that due to the division via right shift, table lengths must be a power of 
 
 ### Exponential
 
-Exponential parameter tables are generated and normalized to the full UQ16 range so that they can be dynamically re-scaled by a `PgmTable16` instance using a UQ16 scaling factor computed at run time. In this way, a single normalized table can be used by multiple PgmTable16 instances with different scaling factors. In addition, scaling factors which depend on the sample rate (such as Q16 frequencies) do not require tables to be re-generated if the sample rate changes. 
+Exponential parameter tables are generated and normalized to the full UQ16 range so that they can be dynamically re-scaled by a `PgmTable16` instance using a UQ16 scaling factor computed at run time. In this way, a single normalized table can be used by multiple `PgmTable16` instances with different scaling factors. In addition, scaling factors which depend on the sample rate (such as Q16 frequencies) do not require tables to be re-generated if the sample rate changes. 
 
 Exponential tables take the form
 
-<img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}"> 
+<img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}, \sqrt[\frac{1}{N-1}]{\frac{e_1}{e_0})}"> 
 
 where 
 
-<img src="https://render.githubusercontent.com/render/math?math=c = (\frac{e_1}{e_0})^{\frac{1}{N-1}}">
+<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[\frac{1}{N-1}]{\frac{e_1}{e_0})}">
 
 and n is an unsigned integer in the range <img src="https://render.githubusercontent.com/render/math?math=[0, N-1]">, typically the result of an ADC conversion intended to control an exponential sweep of a parameter. 
 
@@ -145,15 +144,21 @@ PgmTable16 freq_table(exp1000_u16x1024, scale);
 
 The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` implement a multimode filter with variable cutoff frequency. The filter implements the difference equation of an exponential moving average filter
 
-<img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] + \alpha(x[n] - y[n-1])">
+<img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] %2B \alpha(x[n] - y[n-1])">
 
 The `OnePole` classes provide no setter methods for the coefficient, as it is meant to be assigned directly. The coefficient <img src="https://render.githubusercontent.com/render/math?math=\alpha"> is some function of the desired normalized cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n (rad)">. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n (rad)"> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (-3dB), giving a value 
 
-<img src="https://render.githubusercontent.com/render/math?math=\alpha = b + \sqrt{b^2 + 2b}, b = (1 - cos(\omega_n))">
+<img src="https://render.githubusercontent.com/render/math?math=\alpha = -b  \sqrt{b^2 %2B 2b}">
+
+with 
+
+<img src="https://render.githubusercontent.com/render/math?math=b = (1 - cos(\omega_n))">
+
+
 
 which is expensive to compute. Common approximations are derived from discretizing the filter's differential equation using the finite differences method, yielding 
 
-<img src="https://render.githubusercontent.com/render/math?math=\alpha = \frac{\omega_n}{\omega_n + 1}))">
+<img src="https://render.githubusercontent.com/render/math?math=\alpha = \frac{\omega_n}{\omega_n %2B 1}">
 
 or by solving the differential equation and discretizing its transient response, yielding
 
@@ -179,11 +184,11 @@ For example, at <img src="https://render.githubusercontent.com/render/math?math=
 
 Thus, the sample rate must be known at the time the table is generated to obtain accurate cutoff frequencies. 
 
-A more flexible option for cutoff frequencies much less than 0.5 (<img src="https://render.githubusercontent.com/render/math?math=\frac{f_s}{2}">) is to note that the exact coefficient table is approximately exponential for low frequencies, and that the frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> serves as a usable approximation of <img src="https://render.githubusercontent.com/render/math?math=\alpha"> for low frequencies, and yields a stable filter for <img src="https://render.githubusercontent.com/render/math?math=\omega_n < 1">, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
+A more flexible option for cutoff frequencies much less than <img src="https://render.githubusercontent.com/render/math?math=\frac{f_s}{2}"> is to note that each coefficient table is approximately exponential for low frequencies, where the frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> serves as a usable approximation of <img src="https://render.githubusercontent.com/render/math?math=\alpha">. This apprximation yields a stable filter for <img src="https://render.githubusercontent.com/render/math?math=\omega_n < 1">, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
 
 ![Coefficients and Frequency Response](/images/coeffs_light.gif)
 
-This means that we can typically use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses. 
+This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses. 
 
 #### Option 1
 The following coefficient table yields cutoff frequencies in <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz"> as long as <img src="https://render.githubusercontent.com/render/math?math=f_s = 16kHz">
@@ -235,11 +240,11 @@ onepole.coeff = coeff_table.lookup_scale(adc_value);
 
 ## LibAG Examples
 
-The library's examples 0-3 use `Timer1` in PWM mode for 10-bit digital to analog conversion, and example 4 uses the `MCP492x` external DAC for 12-bit resolution. In examples 1-4, samples are processed at sample rate 10kHz using `Timer0` in CTC mode and an `ADCTimer0` instance configured to convert two control voltages on pins `A0` and `A1` in sequence for parameter control, giving a control rate of half the sample rate. 
+The library's examples 0-3 use `Timer1` in PWM mode for 10-bit digital to analog conversion, and example 4 uses the `MCP4922` external DAC for 12-bit resolution. In examples 1-4, samples are processed at sample rate 10kHz using `Timer0` in CTC mode and an `ADCTimer0` instance configured to convert two control voltages on pins `A0` and `A1` in sequence for parameter control, giving a control rate of half the sample rate. 
 
 For reconstruction of PWM or DAC outputs, a good starting point is to use a Sallen-Key low pass filter with R1 = R2 = 4.7k, and C1 = C2 = 0.1u, which has a cutoff frequency of 339Hz, and two poles giving -12dB attenuation per octave, yielding about -50dB of attenuation at 5kHz. A similar filter should be used if the ADC is used to process periodic signals that may contain frequency components above the control rate. 
 
-This filter run on a single supply if a bipolar supply is unavailable. If the op amp is supplied from the Arduino's 5V output, a rail-to-rail amplifier such as the TLV2372 can be used to allow use of the full [0, 5V] range.
+The op amp can be powered with a single supply if a bipolar supply is unavailable. If the op amp is supplied from the Arduino's 5V output, a rail-to-rail amplifier such as the TLV2372 can be used to allow use of the full [0, 5V] range.
 
 ### 0_MIDI
 
@@ -265,5 +270,9 @@ This example uses `OnePole16` to filter a square wave, writing the filter's low-
 
 This example uses `MCP4922` to control the external dual 12-bit SPI DAC of the same name. Its two channels are used to output sinusoidal waveforms offset by 90 degrees using the locally-defined `Quad16` oscillator class, which inherits from `Wavetable16`.
 
+### A note on sample timing
 
+Examples 1-4 use pins `PD3` and `PD2` to monitor the timing of samples. `PD3` is toggled at the beginning of the sample processing interrupt, which if monitored on an oscilloscope should display a square wave at half the sample rate. `PD2` is set high at the beginning of the sample processing interrupt, and cleared at the end, which should display a pulse whose width scales with the runtime of the processing code. 
+
+These examples provide ample headroom for expansion, and these timing pins should be monitored to ensure samples are generated on time as processing code is added. 
 
