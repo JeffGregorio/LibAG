@@ -111,15 +111,15 @@ Exponential tables take the form
 
 where 
 
-<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[\frac{1}{N-1}]{\frac{e_1}{e_0})}">
+<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[\frac{1}{N-1}]{\frac{e_1}{e_0}}">
 
-and n is an unsigned integer in the range <img src="https://render.githubusercontent.com/render/math?math=[0, N-1]">, typically the result of an ADC conversion intended to control an exponential sweep of a parameter. 
+<img src="https://render.githubusercontent.com/render/math?math=(e_0, e_1)"> are the endpoints of the exponential curve, and n is an unsigned integer in the range [0, N-1], typically the result of an ADC conversion intended to control an exponential sweep of a parameter. 
 
-Thus exponential tables are meant to be generated with specified ratios <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">, and scaling factors used to set the upper bound. 
+Thus exponential tables are meant to be generated with specified ratios <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">, normalized to 16-bit resolution, and UQ16 scaling factors used to set the upper bound dynamically. 
 
-![ExpTable](/images/exp.png')
+![ExpTable](/images/exp.png)
 
-Unsigned 16-bit exponential tables of length 1024 are generated at the command line using
+Thus, unsigned 16-bit exponential tables of length 1024 are generated at the command line using
 
 ```
 > python tablegen.py exp <ratio>
@@ -247,7 +247,7 @@ For reconstruction of PWM or DAC outputs, a good starting point is to use the fo
 
 ![Sallen-Key](/images/sallen-key.png)
 
-Using R = R1 = R2, and C = C1 = C2 gives a Q of 0.5 and a cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{2\pi RC}Hz">. For the examples, R = 4.7k and C = 0.1u yields a cutoff frequency of 339Hz, and two poles giving -12dB attenuation per octave, yielding about -50dB of attenuation at 5kHz. A similar filter should be used if the ADC is used to process periodic signals that may contain frequency components above the control rate. In either case, higher order filters can extend the passband while maintaining the same attenuation at the Nyquist rate. 
+Using R = R1 = R2, and C = C1 = C2 gives a Q of 0.5 and a cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=f_c=\frac{1}{2\pi RC}">. For the examples, R = 4.7k and C = 0.1u yields a cutoff frequency of 339Hz, and two poles giving -12dB attenuation per octave, yielding about -50dB of attenuation at 5kHz. A similar filter should be used if the ADC is used to process periodic signals that may contain frequency components above the control rate. In either case, higher order filters can extend the passband while maintaining the same attenuation at the Nyquist rate. 
 
 The op amp can be powered with a single supply if a bipolar supply is unavailable. If the op amp is supplied from the Arduino's 5V output, a rail-to-rail amplifier such as the TLV2372 can be used to allow use of the full [0, 5V] range.
 
