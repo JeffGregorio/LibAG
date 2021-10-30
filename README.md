@@ -150,7 +150,7 @@ The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` i
 
 The `OnePole` classes provide no setter methods for the coefficient, as it is meant to be assigned directly. The coefficient <img src="https://render.githubusercontent.com/render/math?math=\alpha"> is some function of the desired normalized cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n">. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (or -3dB), giving a value 
 
-<img src="https://render.githubusercontent.com/render/math?math=\alpha = -b  \sqrt{b^2 %2B 2b}">
+<img src="https://render.githubusercontent.com/render/math?math=\alpha = -b %2B \sqrt{b^2 %2B 2b}">
 
 with 
 
@@ -243,11 +243,13 @@ onepole.coeff = coeff_table.lookup_scale(adc_value);
 
 The library's examples 0-3 use `Timer1` in PWM mode for 10-bit digital to analog conversion, and example 4 uses the `MCP4922` external DAC for 12-bit resolution. In examples 1-4, samples are processed at sample rate 10kHz using `Timer0` in CTC mode and an `ADCTimer0` instance configured to convert two control voltages on pins `A0` and `A1` in sequence for parameter control, giving a control rate of half the sample rate. 
 
-For reconstruction of PWM or DAC outputs, a good starting point is to use the following Sallen-Key low pass filter.
+For reconstruction of PWM or DAC outputs, a good starting point is to use the following Sallen-Key low pass filter, which has two poles, giving -12dB attenuation per octave.
 
 ![Sallen-Key](/images/sallen-key.png)
 
-Using R = R1 = R2, and C = C1 = C2 gives a Q of 0.5 and a cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=f_c=\frac{1}{2\pi RC}">. For the examples, R = 4.7k and C = 0.1u yields a cutoff frequency of 339Hz, and two poles giving -12dB attenuation per octave, yielding about -50dB of attenuation at 5kHz. A similar filter should be used if the ADC is used to process periodic signals that may contain frequency components above the control rate. In either case, higher order filters can extend the passband while maintaining the same attenuation at the Nyquist rate. 
+Using R = R1 = R2, and C = C1 = C2 gives a Q of 0.5 and a cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=f_c=\frac{1}{2\pi RC}">. 
+
+For the examples, R = 4.7k and C = 0.1u yields a cutoff frequency of 339Hz and about -50dB of attenuation at 5kHz. A similar filter should be used if the ADC is used to process periodic signals that may contain frequency components above the control rate. In either case, higher order filters can extend the passband while maintaining the same attenuation at the Nyquist rate. 
 
 The op amp can be powered with a single supply if a bipolar supply is unavailable. If the op amp is supplied from the Arduino's 5V output, a rail-to-rail amplifier such as the TLV2372 can be used to allow use of the full [0, 5V] range.
 
