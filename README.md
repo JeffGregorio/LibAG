@@ -107,7 +107,7 @@ Exponential parameter tables are generated and normalized to the full UQ16 range
 
 Exponential tables take the form
 
-<img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}, \sqrt[\frac{1}{N-1}]{\frac{e_1}{e_0})}"> 
+<img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}"> 
 
 where 
 
@@ -116,6 +116,8 @@ where
 and n is an unsigned integer in the range <img src="https://render.githubusercontent.com/render/math?math=[0, N-1]">, typically the result of an ADC conversion intended to control an exponential sweep of a parameter. 
 
 Thus exponential tables are meant to be generated with specified ratios <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">, and scaling factors used to set the upper bound. 
+
+![ExpTable](/images/exp.png')
 
 Unsigned 16-bit exponential tables of length 1024 are generated at the command line using
 
@@ -146,14 +148,13 @@ The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` i
 
 <img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] %2B \alpha(x[n] - y[n-1])">
 
-The `OnePole` classes provide no setter methods for the coefficient, as it is meant to be assigned directly. The coefficient <img src="https://render.githubusercontent.com/render/math?math=\alpha"> is some function of the desired normalized cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n (rad)">. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n (rad)"> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (-3dB), giving a value 
+The `OnePole` classes provide no setter methods for the coefficient, as it is meant to be assigned directly. The coefficient <img src="https://render.githubusercontent.com/render/math?math=\alpha"> is some function of the desired normalized cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n">. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (or -3dB), giving a value 
 
 <img src="https://render.githubusercontent.com/render/math?math=\alpha = -b  \sqrt{b^2 %2B 2b}">
 
 with 
 
-<img src="https://render.githubusercontent.com/render/math?math=b = (1 - cos(\omega_n))">
-
+<img src="https://render.githubusercontent.com/render/math?math=b = 1 - cos(\omega_n)">
 
 
 which is expensive to compute. Common approximations are derived from discretizing the filter's differential equation using the finite differences method, yielding 
@@ -164,7 +165,7 @@ or by solving the differential equation and discretizing its transient response,
 
 <img src="https://render.githubusercontent.com/render/math?math=\alpha = 1 - e^{-\omega_n}">
 
-We can plot each of the coefficient approximations as the normalized radian frequency varies up to <img src="https://render.githubusercontent.com/render/math?math=\omega_n = \pi">. 
+which are also expensive to compute. We can plot each of the coefficient approximations as the normalized radian frequency varies up to <img src="https://render.githubusercontent.com/render/math?math=\omega_n = \pi">. We can see that these curves are not self-similar, thus cannot be normalized and rescaled for different frequency ranges and sample rates as the exponential curves can. 
 
 ![Coefficients](/images/coeffs_light.png)
 
@@ -242,7 +243,11 @@ onepole.coeff = coeff_table.lookup_scale(adc_value);
 
 The library's examples 0-3 use `Timer1` in PWM mode for 10-bit digital to analog conversion, and example 4 uses the `MCP4922` external DAC for 12-bit resolution. In examples 1-4, samples are processed at sample rate 10kHz using `Timer0` in CTC mode and an `ADCTimer0` instance configured to convert two control voltages on pins `A0` and `A1` in sequence for parameter control, giving a control rate of half the sample rate. 
 
-For reconstruction of PWM or DAC outputs, a good starting point is to use a Sallen-Key low pass filter with R1 = R2 = 4.7k, and C1 = C2 = 0.1u, which has a cutoff frequency of 339Hz, and two poles giving -12dB attenuation per octave, yielding about -50dB of attenuation at 5kHz. A similar filter should be used if the ADC is used to process periodic signals that may contain frequency components above the control rate. 
+For reconstruction of PWM or DAC outputs, a good starting point is to use the following Sallen-Key low pass filter.
+
+![Sallen-Key](/images/sallen-key.png)
+
+Using R = R1 = R2, and C = C1 = C2 gives a Q of 0.5 and a cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{2\pi RC}Hz">. For the examples, R = 4.7k and C = 0.1u yields a cutoff frequency of 339Hz, and two poles giving -12dB attenuation per octave, yielding about -50dB of attenuation at 5kHz. A similar filter should be used if the ADC is used to process periodic signals that may contain frequency components above the control rate. In either case, higher order filters can extend the passband while maintaining the same attenuation at the Nyquist rate. 
 
 The op amp can be powered with a single supply if a bipolar supply is unavailable. If the op amp is supplied from the Arduino's 5V output, a rail-to-rail amplifier such as the TLV2372 can be used to allow use of the full [0, 5V] range.
 
