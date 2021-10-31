@@ -1,6 +1,6 @@
 # LibAG
 
-Audio synthesis library for AVR-based Arduino microcontrollers, developed and tested on the Atmega328 using Arduino Uno and Nano. 
+C++ library for audio synthesis on AVR-based Arduino microcontrollers, developed and tested on the ATmega328 using Arduino Uno and Nano, and the ATmega2560 using the Arduino Mega. 
 
 ## Audience
 
@@ -8,7 +8,7 @@ This library is designed to be an accessible entry point for Arduino hobbyists a
 
 ## Overview
 
-The library offers a small set of peripheral drivers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with the external MCP4921/2 12-bit DAC. Rudimentary knowledge of these peripherals is assumed. 
+The library offers a small set of peripheral controllers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with the external MCP4921/2 12-bit DAC. Rudimentary knowledge of the relevant peripherals is assumed.
 
 It also includes a small set of digital signal processing (DSP) objects and utility functions for efficient fixed point signal synthesis and processing, including table-based approaches to sinusoidal synthesis, exponential parameter control, and filter coefficients.
 
@@ -16,7 +16,7 @@ Memory use is minimized by storing pre-computed, normalized tables in flash memo
 
 ## Digital to Analog Conversion
 
-The library provides two methods for generating output. 
+The library provides two methods for generating analog output signals. 
 
 ### PWM (`Timer.h`)
 The classes `Timer0`, `Timer1`, and `Timer2` each have two associated pulse width modulation (PWM) channels mapped to the AVR's associated `OCRnA` and `OCRnB` pins, where `n` is the number of the timer. The PWM rate for timers 0 and 2 are determined by the system clock, the timer's prescaler, and 8-bit timer resolution, i.e. <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^8">. 
@@ -53,7 +53,7 @@ void setup() {
 
 Note it is necessary to use PWM rates greater than the audio sample rate, which limits output resolution at high rates. This rate/resolution trade-off can be eliminated by using an external SPI DAC.
 
-Values are written to the timers' PWM channels using each timer's `pwm_write_a()` and `pwm_write_b()` methods. 
+Values are written to the timers' PWM channels using each timer's `pwm_write_a()` and `pwm_write_b()` methods. On the ATMega2560, Timer1 has an additional channel that can be used with `pwm_write_c()`. 
 
 
 ### DAC (`DACSPI.h`)

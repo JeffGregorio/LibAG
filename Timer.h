@@ -20,15 +20,16 @@
 */	
 
 /* Timer output compare registers: OCR[Timer][Channel]
- *  ==================================================
- *  Register    | Atmega328 Pin     | Arduino Pin 
- *  ==================================================
- *  OCR0A       | 12                | 6             
- *  OCR0B       | 11                | 5
- *  OCR1A       | 15                | 9
- *  OCR1B       | 16                | 10
- *  OCR2A       | 17                | 11
- *  OCR2B       | 5                 | 3
+ *  =================================================================
+ *  Register    | Atmega328 Pin (Uno Pin) | Atmega2560 Pin (Mega Pin)    
+ *  =================================================================
+ *  OCR0A       | 12 	(6)               | 26  (13)            
+ *  OCR0B       | 11 	(5)               | 1 	(4)
+ *  OCR1A       | 15 	(9)               | 24  (11)
+ *  OCR1B       | 16 	(10)              | 25  (12)
+ *  OCR1C 		| n/a 	(n/a) 			  | 26  (13)
+ *  OCR2A       | 17 	(11)              | 23  (10)
+ *  OCR2B       | 5 	(3)               | 18  (9)
  */
 
 #ifndef TIMER_h
@@ -74,8 +75,14 @@ struct Timer0 {
 	 * Initialize in Fast PWM mode
 	 */
 	void init_pwm() {
-		DDRD |= (1 << PD6);	// Enable output on channel A (Port D, bit 6, or pin 6)
-		DDRD |= (1 << PD5);	// Enable output on channel B (Port D, bit 5, or pin 5)
+    	// Enable output in OCR pins
+#ifdef __AVR_ATmega328P_
+		DDRD |= (1 << PD6);	// (Ch A) Arduino Uno pin 6
+		DDRD |= (1 << PD5);	// (Ch B) Arduino Uno pin 5
+#elif __AVR_ATmega2560__
+		DDRB |= (1 << PB7); // (Ch A) Arduino Mega pin 13
+		DDRG |= (1 << PB5); // (Ch B) Arduino Mega pin 4
+#endif
 		TCCR0A = 0;					// Clear control register A
 		TCCR0B = 0;					// Clear control register B
 		TCCR0A |= (1 << WGM01) | (1 << WGM00);	// Fast PWM (mode 3)
@@ -152,8 +159,15 @@ struct Timer1 {
 	 */
 	void init_pwm(uint8_t bit_res = 8) {
     	uint16_t icr = (1 << bit_res) - 1;
-		DDRB |= (1 << PB1);	// Enable output on channel A (Port B, bit 1, or pin 9)
-		DDRB |= (1 << PB2);	// Enable output on channel B (Port B, bit 2, or pin 10)
+    	// Enable output in OCR pins
+#ifdef __AVR_ATmega328P__
+		DDRB |= (1 << PB1);	// (Ch A) Arduino Uno pin 10
+		DDRB |= (1 << PB2);	// (Ch B) Arduino Uno pin 9
+#elif __AVR_ATmega2560__
+		DDRB |= (1 << PB5);	// (Ch A) Arduino Mega pin 11
+		DDRB |= (1 << PB6);	// (Ch B) Arduino Mega pin 12
+		DDRB |= (1 << PB7); // (Ch C) Arduino Mega pin 13
+#endif
     	ICR1H = (icr & 0xFF00) >> 8;
 		ICR1L = icr & 0xFF;
 		TCCR1A = 0;					// Clear control register A
@@ -192,6 +206,12 @@ struct Timer1 {
     	OCR1BH = (val & 0xFF00) >> 8;
 	 	OCR1BL = val & 0xFF; 
 	}
+#ifdef __AVR_ATmega2560__
+	void pwm_write_c(uint16_t val) {
+		OCR1CH = (val & 0xFF00) >> 8;
+		OCR1CL = val & 0xFF;
+	}
+#endif
 
 	/*
 	 * Data
@@ -245,8 +265,14 @@ struct Timer2 {
 	 * Initialize in Fast PWM mode
 	 */
 	void init_pwm() {
-		DDRD |= (1 << PD3);	// Enable output on channel A (Port D, bit 3, or pin 11)
-		DDRB |= (1 << PB3);	// Enable output on channel B (Port B, bit 3, or pin 3)
+// Enable output in OCR pins
+#ifdef __AVR_ATmega328P__
+		DDRD |= (1 << PD3);	// (Ch A) Arduino Uno pin 11
+		DDRB |= (1 << PB3);	// (Ch B) Arduino Uno pin 3
+#elif __AVR_ATmega2560__
+		DDRB |= (1 << PB4);	// (Ch A) Arduino Mega pin 10
+		DDRH |= (1 << PH6);	// (Ch B) Arduino Mega pin 9
+#endif
 		TCCR2A = 0;					// Clear control register A
 		TCCR2B = 0;					// Clear control register B
 		TCCR2A |= (1 << WGM21) | (1 << WGM20);	// Fast PWM (mode 3)
