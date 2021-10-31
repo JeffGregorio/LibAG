@@ -202,7 +202,16 @@ The user must include the table and pass its address to the wavetable oscillator
 
 ```C
 #include "tables/sine_u16x1024.h"
-Wavetable16 lfo(sine_u16x1024, 6);
+...
+
+// Unsigned 16-bit integer sine table of length 1024
+Wavetable16 lfo(sine_u16x1024, 6);	
+// 16-bit phase is right-shifted 6 bits to use as a 10-bit lookup index
+
+...
+
+lfo.freq = ...;				// Set the frequency in [-0x8000, 7FFFF]
+sine_val = lfo.render();	// Render a sample in [0, 0xFFFF]
 ```
 
 Note that due to the division via right shift, table lengths must be a power of two for use with Wavetable16.
@@ -298,7 +307,7 @@ A more flexible option for cutoff frequencies much less than <img src="https://r
 
 ![Coefficients and Frequency Response](/images/coeffs_light.gif)
 
-This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses over a cutoff frequency range of apprxoimately <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz">. 
+This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses over a cutoff frequency range of approximately <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz">. 
 
 #### Option 1
 The following yields accurate cutoff frequencies over its range as long as <img src="https://render.githubusercontent.com/render/math?math=f_s = 16kHz">
