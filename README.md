@@ -23,11 +23,38 @@ The classes `Timer0`, `Timer1`, and `Timer2` each have two associated pulse widt
 
 Prescalers are set with the timer's `init_pwm()` methods. Options for `Timer0` and `Timer1` include `{1, 8, 64, 256, 1024}`. Timer 2 has additional prescaler options including `{1, 8, 32 64, 128, 256, 1024}`. 
 
-Each timer can be used in fast PWM mode by calling its `init_pwm()` method. Output values are written to pin OCRnA using `pwm_write_a()` and OCRnB `pwm_write_b()`, using 8-bit values for `Timer0` and `Timer2`, and up to 16-bit values for `Timer1`. 
+Timer 0 or 2 can be initialized in fast PWM mode as follows
 
-The 16-bit `Timer1` allows trading decreased PWM rate for increased resolution. Its `init_pwm()` method takes a bit resolution parameter `N` that sets the value at which the timer resets to a power of two, yielding N-bit PWM at rate <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^N">. 
+```C
+#include "Timer.h"
 
-Note it is necessary to use PWM rates greater than the sample rate, which limits output resolution. This rate/resolution trade-off can be eliminated by using an external SPI DAC.
+Timer0 timer0;	
+	
+void setup() {
+	// 8-bit PWM at rate = 16e6/1/256 = 62.5kHz
+	timer0.set_prescaler(1);
+	timer0.init_pwm();
+}
+```
+
+Timer 1's initialization method has an additional parameter that allows for N-bit PWM at rate <img src="https://render.githubusercontent.com/render/math?math=f_{PWM}=16MHz/prescaler/2^N">. 
+
+```C
+#include "Timer.h"
+
+Timer1 timer1;
+	
+void setup() {
+	// 10-bit PWM at rate = 16e6/1/1024 = 15.625kHz
+	timer0.set_prescaler(1);
+	timer0.init_pwm(10);
+}
+```
+
+Note it is necessary to use PWM rates greater than the audio sample rate, which limits output resolution at high rates. This rate/resolution trade-off can be eliminated by using an external SPI DAC.
+
+Values are written to the timers' PWM channels using each timer's `pwm_write_a()` and `pwm_write_b()` methods. 
+
 
 ### DAC (`DACSPI.h`)
 
@@ -41,11 +68,88 @@ Each has a `set_prescaler()` method taking values `{2, 4, 8, 16, 32, 64, 128}`. 
 
 Each class has an `init()` method, and an `update()` method that must be called from the `ISR(ADC_vec)` routine to convert the next channel in sequence. Conversions from any channel can then be retrieved from the instance's `results` array. 
 
-The ADC can be configured in free-running mode using `ADCFreeRunning` at a rate determined by the system clock, its prescaler, and the thirteen clock cycles required to complete a conversion <img src="https://render.githubusercontent.com/render/math?math=f_{ADC}=16MHz/prescaler/13">. Thus, the free-running rate determines the maximum possible sample rate for a given system clock and ADC prescaler. 
+The ADC can be configured in free-running mode using `ADCFreeRunning` at a rate determined by the system clock, its prescaler, and the thirteen clock cycles required to complete a conversion <img src="https://render.githubusercontent.com/render/math?math=f_{ADC}=16MHz/prescaler/13">. 
 
-Rates less than the maximum can be accomplished by triggering conversions using Timer 0's CTC mode with `ADCTimer0`. Note that `Timer0` must be independently configured in CTC mode with `Timer0::set_prescaler()` and `Timer0::init_ctc()`, providing the prescaler and an 8-bit OCR0A value, respectively. The `ISR(Timer0_COMPA_vect)` must be declared as well, which results in `ISR(ADC_vect)` being called at a rate <img src="https://render.githubusercontent.com/render/math?math=f_{ADC}=16MHz/prescaler_{Timer0}/OCR0A">. 
+Free running mode can be configured as follows
+
+```C
+#include "ADCAuto.h"
+
+const uint8_t n_ch = 2;		// Use ADC channels 0, 1
+ADCFreeRunning adc(2);		// Scan sequentially at rate CLK_ADC / 13 
+
+void setup() {
+	// Note: CLK_ADC = 16e6/64 > 200kHz trades effective resolution for speed
+	adc.set_prescaler(64);	
+	adc.init();
+}
+
+...
+
+// Called at sample rate f_s = 16e6/64/13 = 19.231kHz	
+ISR(ADC_vect) {
+	adc.update();
+	// Retrieve conversion results from adc.results[0] and adc.results[1]
+}
+```
+
+Note that the free-running rate determines the maximum possible sample rate for a given system clock and ADC prescaler. 
+
+Lower rates can be obtained by triggering conversions using Timer0's CTC mode with `ADCTimer0`. Note that `Timer0` must be independently configured, and the `ISR(TIMER0_COMPA_vect)` must be declared, which results in `ISR(ADC_vect)` being called at a rate <img src="https://render.githubusercontent.com/render/math?math=f_{ADC}=16MHz/prescaler_{Timer0}/OCR0A">. 
+
+ADC triggering with Timer0 can be configured as follows
+
+```C
+#include "ADCAuto.h"
+
+const uint8_t n_ch = 2;	// Use ADC channels 0, 1
+ADCTimer0 adc(2);		// Scan sequentially at rates up to CLK_ADC / 13 
+Timer0 timer0;			// ADC trigger source
+
+void setup() {
+	// Trigger ADC conversions at 16e6/8/125 = 16kHz
+	timer0.set_prescaler(8);
+	timer0.init_ctc(125);
+	// Note: CLK_ADC = 16e6/64 > 200kHz trades effective resolution for speed
+	adc.set_prescaler(64);	
+	adc.init();
+}
+
+...
+
+ISR(TIMER0_COMPA_vect) {
+	;	// Do nothing
+}
+
+// Called at timer0 CTC rate
+ISR(ADC_vect) {
+	adc.update();
+	// Retrieve conversion results from adc.results[0] and adc.results[1]
+}
+```
 
 The ADC can also be triggered on the rising edge of an external clock signal on the INT0 pin using `ADCInt0`. 
+
+```C
+#include "ADCAuto.h"
+
+const uint8_t n_ch = 2;	// Use ADC channels 0, 1
+ADCInt0 adc(2);			// Scan sequentially at rates up to CLK_ADC / 13 
+
+void setup() {
+	// Note: CLK_ADC = 16e6/64 > 200kHz trades effective resolution for speed
+	adc.set_prescaler(64);	
+	adc.init();
+}
+
+...
+
+// Called when pin INT0 goes from low to high, up to fs = CLK_ADC / 13
+ISR(ADC_vect) {
+	adc.update();
+	// Retrieve conversion results from adc.results[0] and adc.results[1]
+}
+```
 
 ## Note on fixed point format
 
@@ -111,9 +215,9 @@ Exponential tables of length N can be generated over a nonzero range <img src="h
 
 where 
 
-<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[N-1]{\frac{e_1}{e_0}}">
+<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[{N-1}]{\frac{e_1}{e_0}}">
 
-Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF`, and dynamically re-scale the output to a maximum value less than `0xFFFF` using a Q multiply. This places the minimum value at <img src="https://render.githubusercontent.com/render/math?math=\frac{0xFFFF}{ratio}">, where the ratio is <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">.
+Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF` (0.9999 interpreted as UQ16), and dynamically re-scale the output using a Q multiply. This places the maximum value at the scaling factor `scale`, and the minimum value at <img src="https://render.githubusercontent.com/render/math?math=\frac{scale}{ratio}">, where the ratio is <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">.
 
 ![ExpTable](/images/exp.png)
 
@@ -137,9 +241,14 @@ For example, a 10-bit ADC reading can be used to control an exponential Q16 freq
 
 ```C
 #include "tables/exp1000_u16x1024.h"
+
 float fs = 16e3;
+...
 uint16_t scale = 200.0/fs * 0xFFFF;
 PgmTable16 freq_table(exp1000_u16x1024, scale);
+...
+// Set an oscillator's frequency
+lfo.freq = freq_table.lookup_scale(adc_u10);	// Use [0, 1023] as table index
 ```
 
 ### Filter Coefficients 
@@ -202,6 +311,7 @@ The following yields accurate cutoff frequencies over its range as long as <img 
 #include "tables/coeff_z_u16x1024.h"
 PgmTable16 coeff_table(coeff_z_u16x1024);	
 ...
+// Set a OnePole filter's coefficient
 onepole.coeff = coeff_table.lookup(adc_value); 
 ```
 
@@ -218,6 +328,7 @@ float f_s = 16e3;
 uint16_t scale = 2000.0/fs * 0xFFFF;
 PgmTable16 coeff_table(exp10000_u16x1024, scale);
 ...
+// Set a OnePole filter's coefficient
 onepole.coeff = coeff_table.lookup_scale(adc_value);
 ```
 
@@ -236,6 +347,7 @@ float alpha = -b + sqrtf(b*b + 2*b);
 uint16_t scale = alpha * 0xFFFF;
 PgmTable16 coeff_table(exp10000_u16x1024, scale);
 ...
+// Set a OnePole filter's coefficient
 onepole.coeff = coeff_table.lookup_scale(adc_value);
 ```
 
