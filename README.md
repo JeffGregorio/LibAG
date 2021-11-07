@@ -290,6 +290,8 @@ MSbit | | | | | | | LSbit
 
 And again, nothing changes from the processor's perspective. This is known as Q8 format. We can also think of Q8 as its integer value multiplied by an implicit scaling factor of 2<sup>-7</sup>, making the maximum value 127/128 = 0.9922.
 
+See `FixedPoint.h` for additional saturating arithmetic and multiply functions for signed types. 
+
 ### 4.3 Other formats
 
 Parts of LibAG treat `uint8_t`, `uint16_t`, and `uint32_t`, respectively as UQ8, UQ16, and UQ32 types, and likewise `int8_t`, `int16_t`, and `int32_t` as Q8, Q16, and Q32. Each of these types uses all of their bits for fractional precision. 
@@ -306,7 +308,7 @@ These classes use normalized frequencies specified as integer values rather than
 
 Recall that the sample rate f<sub>s</sub> limits the frequencies we can capture and synthesize in discrete time. I.e. we are limited to frequencies below f<sub>s</sub>/2. Note in some cases we can use the negative frequency band down to -f<sub>s</sub>/2.
 
-If you're coming from an engineering background, you might be accustomed to seeing this interval normalized to (-pi, pi), a natural choice given the domain of periodic functions like sin, cos, and the complex exponential. The choice is arbitrary, however. For example, if we had hardware floating point we might use (-0.5, 0.5) as a convenience and scale these normalized frequencies to the former range by multiplying with 2pi if needed. 
+If you're coming from an engineering background, you might be accustomed to seeing this interval normalized to (-&#960;, &#960;), a natural choice given the domain of periodic functions like sin, cos, and the complex exponential. The choice is arbitrary, however. For example, if we had hardware floating point we might use (-0.5, 0.5) as a convenience and scale these normalized frequencies to the former range by multiplying with 2&#960; if needed. 
 
 Perhaps it shouldn't come as a surprise that when all we have is integer arithmetic, we can normalize to an integer range, or equivalently, a fixed point range. While UQ8 or Q8 fixed point give poor frequency resolution, UQ16 and Q16 are satisfactory for most purposes, with an effective resolution (in Hz) of f<sub>s</sub>/2<sup>16</sup>. 
 
@@ -414,7 +416,7 @@ Note that due to the division via right shift, table lengths must be a power of 
 
 ### 6.2 Exponential
 
-Exponential tables of length N can be generated over a nonzero range <img src="https://render.githubusercontent.com/render/math?math=(e_0, e_1)"> using
+Exponential tables of length N and index n in [0, N-1] can be generated over a nonzero range (e<sub>0</sub>, e<sub>1</sub>) using
 
 <img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}"> 
 
@@ -422,7 +424,7 @@ where
 
 <img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[{N-1}]{\frac{e_1}{e_0}}">
 
-Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF`, and dynamically re-scale the output using a UQ16 multiply. This places the maximum value at the scaling factor `scale`, and the minimum value at <img src="https://render.githubusercontent.com/render/math?math=\frac{scale}{ratio}">, where the ratio is <img src="https://render.githubusercontent.com/render/math?math=\frac{e1}{e0}">.
+Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF`, and dynamically re-scale the output using a UQ16 multiply. This places the maximum value at the UQ16 scaling factor, and the minimum value at scale/ratio, where the ratio is e<sub>0</sub>/e<sub>1</sub>.
 
 ![ExpTable](/images/exp.png)
 
@@ -442,7 +444,7 @@ Where `type` is one of `{u8, u16, u32}` indicating the size of an unsigned integ
 
 The table can be used with a `PgmTable16` instance's `lookup_scale()` method. The scaling factor can be computed at startup and/or changed dynamically. 
 
-For example, a 10-bit ADC reading can be used to control the previous example's `Wavetable16` oscillator's frequency with an exponential sweep over the range <img src="https://render.githubusercontent.com/render/math?math=[0.2, 200.0] Hz"> using
+For example, a 10-bit ADC reading can be used to control the previous example's `Wavetable16` oscillator's frequency with an exponential sweep over [0.2, 200]Hz using
 
 ```C
 #include "tables/sine_u16x1024.h"
@@ -472,7 +474,7 @@ The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` i
 
 <img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] %2B \alpha(x[n] - y[n-1])">
 
-The `OnePole` classes provide no setter methods for the coefficient, as it is meant to be assigned directly. The coefficient <img src="https://render.githubusercontent.com/render/math?math=\alpha"> is some function of the desired normalized cutoff frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n">. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (or -3dB), giving a value 
+The `OnePole` classes provide no setter methods for the coefficient, as it is meant to be assigned directly. The coefficient &#945; is some function of the desired normalized cutoff frequency &#969;<sub>n</sub>. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency &#969;<sub>n</sub> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (or -3dB), giving a value 
 
 <img src="https://render.githubusercontent.com/render/math?math=\alpha = -b %2B \sqrt{b^2 %2B 2b}">
 
@@ -489,7 +491,7 @@ or by solving the differential equation and discretizing its transient response,
 
 <img src="https://render.githubusercontent.com/render/math?math=\alpha = 1 - e^{-\omega_n}">
 
-which are also expensive to compute. We can plot each of the coefficient approximations as the normalized radian frequency varies up to <img src="https://render.githubusercontent.com/render/math?math=\omega_n = \pi">. We can see that these curves are not self-similar, thus cannot be normalized and rescaled for different frequency ranges and sample rates as the exponential curves can. 
+which are also expensive to compute. We can plot each of the coefficient approximations as the normalized radian frequency varies up to &#969;<sub>n</sub> = &#960;. We can see that these curves are not self-similar, thus cannot be normalized and rescaled for different frequency ranges and sample rates as the exponential curves can. 
 
 ![Coefficients](/images/coeffs_light.png)
 
@@ -499,9 +501,9 @@ Unsigned 16-bit integer lookup tables of length 1024 for these three variants (s
 > python tablegen.py coeff <method> <fmin> <fmax>
 ```
 
-where `method` is one of `{z, diff, trans}`, and `fmin` and `fmax` are the frequency bounds, normalized such that <img src="https://render.githubusercontent.com/render/math?math=(0, 0.5)"> corresponds to the range <img src="https://render.githubusercontent.com/render/math?math=(0, \pi)">, or <img src="https://render.githubusercontent.com/render/math?math=(0, \frac{f_s}{2})">.
+where `method` is one of `{z, diff, trans}`, and `fmin` and `fmax` are the frequency bounds, normalized such that (0, 0.5) corresponds to the range (0, &#960;), or (0, f<sub>s</sub>/2).
 
-For example, at <img src="https://render.githubusercontent.com/render/math?math=f_s = 16kHz">, an exact filter coefficient table mapping a 10-bit ADC reading to the range <img src="https://render.githubusercontent.com/render/math?math=(16, 1600)Hz"> can be generated with
+For example, at f<sub>s</sub> = 16kHz, an exact filter coefficient table mapping a 10-bit ADC reading to the range [16, 1600]Hz can be generated with
 
 ```
 > python tablegen.py coeff z 0.001 0.1
@@ -509,14 +511,14 @@ For example, at <img src="https://render.githubusercontent.com/render/math?math=
 
 Thus, the sample rate must be known at the time the table is generated to obtain accurate cutoff frequencies. 
 
-A more flexible option for cutoff frequencies much less than <img src="https://render.githubusercontent.com/render/math?math=\frac{f_s}{2}"> is to note that each coefficient table is approximately exponential for low frequencies, where the frequency <img src="https://render.githubusercontent.com/render/math?math=\omega_n"> serves as a usable approximation of <img src="https://render.githubusercontent.com/render/math?math=\alpha">. This approximation yields a stable filter for <img src="https://render.githubusercontent.com/render/math?math=\omega_n < 1">, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
+A more flexible option for cutoff frequencies much less than f<sub>s</sub>/2 is to note that each coefficient table is approximately exponential for low frequencies, where the frequency &#969;<sub>n</sub> serves as a usable approximation of &#945;. This approximation yields a stable filter for &#969;<sub>n</sub> < 1, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
 
 ![Coefficients and Frequency Response](/images/coeffs_light.gif)
 
-This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses over a cutoff frequency range of approximately <img src="https://render.githubusercontent.com/render/math?math=(0.2, 2000)Hz">. 
+This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses over a cutoff frequency range of approximately (0.2, 2000)Hz. 
 
 #### Option 1
-The following yields accurate cutoff frequencies over its range as long as <img src="https://render.githubusercontent.com/render/math?math=f_s = 16kHz">
+The following yields accurate cutoff frequencies over its range as long as f<sub>s</sub> = 16kHz. 
 
 ```
 > python tablegen.py coeff z 1.25e-5 0.125
