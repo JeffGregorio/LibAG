@@ -222,9 +222,9 @@ Note that raising the timer's resolution lowers the PWM rate. Although we can st
 
 The rate/resolution trade-off can be circumvented (at least at audio rates) by using an external DAC like the MCP4921/4922, which are one- and two-channel 12-bit DACs that use a simple Serial Peripheral Interface (SPI) protocol. From the DAC's datasheet, we learn that the DAC takes the following 16-bit control word:
 
-15 | 14 | 13 | 12 | 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0
---|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--
-A'/B|BUF|GA'|SHDN'|D11|D10|D9|D8|D7|D6|D5|D4|D3|D2|D1|D0
+15 | 14 | 13 | 12 | 11 | 10 | ... | 1 | 0
+--|--|--|--|--|--|--|--|--
+A'/B|BUF|GA'|SHDN'|D11|D10|...|D1|D0
 
 From MSbit to LSB bit, we have the channel selection (0 = A, 1 = B), buffer enable, 2x gain setting (active low), and shutdown (active low), followed by the 12 bits comprising an audio sample.
 
