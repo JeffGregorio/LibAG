@@ -63,7 +63,7 @@ void setup() {
 
 ...
 
-ISR(TIMER0_COMPA_vect) {.           // Called at 16kHz (every 62.5us)
+ISR(TIMER0_COMPA_vect) {            // Called at 16kHz (every 62.5us)
 	phase++;                        // 16-bit sawtooth, ~0.244 Hz
 	timer2.pwm_write_a(phase >> 8); // Write 8-bit signal to pin OCR2A
 }
@@ -170,11 +170,11 @@ void setup() {
 	adc.init();
 }
 
-ISR(INT0_vect) {    // Clalled on INT0 rising edge
-	;     // Implicitly triggers ADC conversion; nothing to do
+ISR(INT0_vect) {   // Called on INT0 rising edge; triggers ADC conversion
+	;  // Nothing to do
 }
 
-ISR(ADC_vect) {.    // Called after ADC conversion completes
+ISR(ADC_vect) {     // Called after ADC conversion completes
 	adc.update();   // Scan the current channel and store result
 	sample = adc.results[0] >> 2;   // Scale 10- to 8-bit
 	timer2.pwm_write_a(sample);     // Write to pin OCR2A
@@ -203,8 +203,8 @@ void setup() {
 	adc.init();
 }
 
-ISR(INT0_vect) {     // Clalled on INT0 rising edge
-	;    // Implicitly triggers ADC conversion; nothing to do
+ISR(INT0_vect) {     // Clalled on INT0 rising edge; triggers ADC conversion
+	;    // Nothing to do
 }
 
 ISR(ADC_vect) {      // Called after ADC conversion completes
