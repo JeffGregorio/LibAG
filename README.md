@@ -50,7 +50,7 @@ Our timing needs (churning out samples at a regular rate) can be handled with no
 In this example, Timer 0 gives us a 16kHz sample rate to render a low-frequency sawtooth wave. Timer 2 provides a PWM output at 62.5kHz.
 
 ```C
-#include "Timer.h"
+#include <Timer.h>
 
 Timer0 timer0;    // Sample rate trigger
 Timer2 timer2;    // PWM output
@@ -87,8 +87,8 @@ Timer 0 controls sample timing using CTC mode and a larger prescaler. Recall tha
 In this example, we use the ADC's free running mode to automatically scan two channels at about 19kHz, multiply their values, and output the result. The effective input sample rate for each channel is the output sample rate (19kHz) divided by the number of ADC channels scanned. 
 
 ```C
-#include "ADCAuto.h"
-#include "Timer.h"
+#include <ADCAuto.h>
+#include <Timer.h>
 
 Timer2 timer2;              // PWM output
 ADCFreeRunning adc(2);      // Analog inputs (A0, A1) and sample rate trigger
@@ -123,8 +123,8 @@ Notice our *only* free parameter for determining ADC free running rate is the AD
 A more flexible solution for triggering conversions is to use Timer 0's CTC mode. Here, we modify the previous example for use with sample rates *up to* the ADC's free running rate. Note Timer 0's ISR can be empty, but must be included. 
 
 ```C
-#include "ADCAuto.h"
-#include "Timer.h"
+#include <ADCAuto.h>
+#include <Timer.h>
 
 Timer0 timer0;              // ADC trigger source 
 Timer2 timer2;              // PWM output
@@ -158,8 +158,8 @@ ISR(ADC_vect) {.    // Called after ADC conversion completes
 This simple sample and hold CV processor triggers ADC conversions on the rising edge of an external digital signal on the `INT0` pin. Like the previous example, the trigger source's ISR can be empty, but must be included.
 
 ```C
-#include "ADCAuto.h"
-#include "Timer.h"
+#include <ADCAuto.h>
+#include <Timer.h>
 
 ADCInt0 adc(1);     // Analog input A0 and sample rate trigger
 Timer2 timer2;      // PWM output
@@ -193,8 +193,8 @@ Timer 1 has the same prescaler options as Timer 0 {1, 8, 64, 256, 1024}, but has
 Here, we modify the previous example for 10-bit output as well as input. 
 
 ```C
-#include "ADCAuto.h"
-#include "Timer.h"
+#include <ADCAuto.h>
+#include <Timer.h>
 
 ADCInt0 adc(1);     // Analog input A0 and sample rate trigger
 Timer1 timer1;      // PWM output
@@ -346,7 +346,7 @@ int16_t freq = 20.0 / f_s * 0xFFFF;
 And here we revisit the sawtooth example with a frequency specified in Hz. 
 
 ```C
-#include "Timer.h"
+#include <Timer.h>
 
 const float f_s = 16e3;     // Sample rate
 
@@ -421,7 +421,10 @@ The resulting tables are written to files with unique names given their paramete
 The user must include the table and pass its address to the wavetable oscillator alongside an integer number used to scale the 16-bit phase oscillator to the table length via right shift before lookup. For example, the length-1024 sine wave table can be used with Wavetable16 as follows
 
 ```C
-#include "tables/sine_u16x1024.h"
+...
+#include <Oscillator.h>
+#include <tables/sine_u16x1024.h>
+
 ...
 
 // Unsigned 16-bit integer sine table of length 1024
@@ -471,8 +474,12 @@ The table can be used with a `PgmTable16` instance's `lookup_scale()` method. Th
 For example, a 10-bit ADC reading can be used to control the previous example's `Wavetable16` oscillator's frequency with an exponential sweep over [0.2, 200]Hz using
 
 ```C
-#include "tables/sine_u16x1024.h"
-#include "tables/exp1000_u16x1024.h"
+...
+
+#include <Oscillator.h>
+#include <PgmTable.h>
+#include <tables/sine_u16x1024.h>
+#include <tables/exp1000_u16x1024.h>
 
 const float fs = 16e3;
 
@@ -550,17 +557,22 @@ The following yields accurate cutoff frequencies over its range as long as f<sub
 ```
 
 ```C
-#include "tables/coeff_z_u16x1024.h"
+...
+
+#include <IIR.h>
+#include <PgmTable.h>
+#include <tables/coeff_z_u16x1024.h>
 
 ...
 
+OnePole16 filter;
 PgmTable16 coeff_table(coeff_z_u16x1024);	
 
 ...
 
 ISR(ADC_vect) {
 	...
-	onepole.coeff = coeff_table.lookup(adc.results[0]); 
+	filter.coeff = coeff_table.lookup(adc.results[0]); 
 	...
 }
 ```
@@ -573,11 +585,17 @@ The following yields less accurate cutoff frequencies toward its *maximum* value
 ```
 
 ```C
+...
+
+#include <IIR.h>
+#include <PgmTable.h>
 #include "tables/exp10000_u16x1024.h"
 
 const float f_s = 16e3;
 
 ...
+
+OnePole16 filter;
 
 uint16_t scale = 2000.0/fs * 0xFFFF;
 PgmTable16 coeff_table(exp10000_u16x1024, scale);	
@@ -586,7 +604,7 @@ PgmTable16 coeff_table(exp10000_u16x1024, scale);
 
 ISR(ADC_vect) {
 	...
-	onepole.coeff = coeff_table.lookup_scale(adc.results[0]); 
+	filter.coeff = coeff_table.lookup_scale(adc.results[0]); 
 	...
 }
 ```
@@ -599,11 +617,17 @@ The following yields less accurate cutoff frequencies toward its *minimum* value
 ```
 
 ```C
+...
+
+#include <IIR.h>
+#include <PgmTable.h>
 #include "tables/exp10000_u16x1024.h"
 
 const float f_s = 16e3;
 
 ...
+
+OnePole16 filter;
 
 float b = 1 - cosf(2000.0/f_s);
 float alpha = -b + sqrtf(b*b + 2*b);
@@ -614,7 +638,7 @@ PgmTable16 coeff_table(exp10000_u16x1024, scale);
 
 ISR(ADC_vect) {
 	...
-	onepole.coeff = coeff_table.lookup_scale(adc.results[0]); 
+	filter.coeff = coeff_table.lookup_scale(adc.results[0]); 
 	...
 }
 ```
