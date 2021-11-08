@@ -32,7 +32,7 @@ The point is that higher sample rates are usually better.
 Although standard sample rates like 44.1kHz and 48kHz permit only the most minimal computation on these AVRs, lower rates are emanently usable in modular synth applications like low frequency oscillators, envelope generators and followers, MIDI to CV converters, sequencers, etc., making these processors more than appropriate. 
 
 ### Limitations of Arduino-style I/O
-To get the most out of the processor, we'll replace Arduino staples like `delay()`, `millis()`, `analogWrite()`, `analogRead()`. Their admirable generality is no free lunch, and the peripherals they use (timers and converters) can be much better configured for our task. On an Uno, `analogRead()` alone takes a whopping 110&#956;s to convert a single sample, meaning we could forget about sample rates above 8-9kHz even with the most minimal processing. 
+To get the most out of the processor, LibAG replaces Arduino staples like `delay()`, `millis()`, `analogWrite()`, `analogRead()`. Their admirable generality is no free lunch, and the peripherals they use (timers and converters) can be much better configured for our task. On an Uno, `analogRead()` alone takes a whopping 110&#956;s to convert a single sample, meaning we could forget about sample rates above 8-9kHz even with the most minimal processing. 
 
 What we need is a fuction that runs at a regular sample rate, and a way of converting from digital to analog and vice versa that takes up as little of the sample period as possible--leaving the rest for DSP code. LibAG's configuration of the ADC, for example, reduces the overhead for conversions to under 2&#956;s by offloading most of the work to the ADC itself. 
 
@@ -47,7 +47,7 @@ Our timing needs (churning out samples at a regular rate) can be handled with no
 ## 3 Peripheral Drivers: Basic Usage 
 ### 3.1 Timers in PWM and CTC Modes
 
-In this example, Timer 0 gives us a 16kHz sample rate to render a low-frequency sawtooth wave. 
+In this example, Timer 0 gives us a 16kHz sample rate to render a low-frequency sawtooth wave. Timer 2 provides a PWM output at 62.5kHz.
 
 ```C
 #include "Timer.h"
@@ -220,17 +220,23 @@ Note that raising the timer's resolution lowers the PWM rate. Although we can st
 
 ### 3.6 External Digital to Analog Converter (DAC)
 
-The rate/resolution trade-off can be circumvented (at least at audio rates) by using an external DAC like the MCP4921/4922, which are one- and two-channel 12-bit DACs that use a simple Serial Peripheral Interface (SPI) protocol. When configured, the DAC takes a 16-bit control word consisting of bits (MSB to LSB) for the A/B channel selection, buffer enable, high/low gain setting, shutdown, followed by the 12 bits comprising an audio sample.
+The rate/resolution trade-off can be circumvented (at least at audio rates) by using an external DAC like the MCP4921/4922, which are one- and two-channel 12-bit DACs that use a simple Serial Peripheral Interface (SPI) protocol. From the DAC's datasheet, we learn that the DAC takes the following 16-bit control word:
 
-The AVR processors have an SPI peripheral which, at its maximum SPI clock rate of 4MHz can shift the control word's sixteen bits out at rates up to 250kHz, ensuring 12-bit resolution at any sample rate we could achieve. 
+MSbit | | | | | | | | | | | | | | | LSbit
+--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--
+A'/B|BUF|GA'|SHDN'|D11|D10|D9|D8|D7|D6|D5|D4|D3|D2|D1|D0
 
-The peripheral generates the SPI clock and data out signals on the SCK and MOSI pins, respectively. Since we're not receiving any data from the DAC, we don't need to use the MISO pin. LibAG's `SPIMaster` class configures the SPI and shifts out 8 or 16-bit control words. The user must configure a CS (chip select) pin, clear it before transmission, and set it after. 
+From MSbit to LSB bit, we have the channel selection (0 = A, 1 = B), buffer enable, 2x gain setting (active low), and shutdown (active low), followed by the 12 bits comprising an audio sample.
 
-Revisiting the first example, we could now synthesize a sawtooth at 12-bit amplitude resolution without lowering the sample rate. 
+The AVR processors have an SPI peripheral which, at its maximum SPI clock rate of 4MHz can shift the control word's sixteen bits out at rates up to 4MHz/16 = 250kHz, ensuring 12-bit resolution at any sample rate we could achieve. 
+
+The peripheral generates the SPI clock and data out signals on the SCK and MOSI pins, respectively. Since we're not receiving any data from the DAC, we don't need to use the MISO pin. LibAG's `SPIMaster` class configures the SPI and shifts out 8- or 16-bit control words. The user must configure a CS (chip select) pin, clear it before transmission, and set it after. 
+
+Revisiting the first example, we could now synthesize a sawtooth at 12-bit amplitude resolution without PWM lowering the effective Nyquist rate. 
 
 ```C
-#include "Timer.h"
-#include "SPI.h"
+#include <Timer.h>
+#include <SPIMaster.h>
 
 Timer0 timer0;      // Sample rate trigger
 SPIMaster spi;      // SPI to DAC
@@ -246,17 +252,17 @@ void setup() {
 
 ...
 
-// Note the use of MCP4922's control word:
+// MCP4922's control word:
 // A'/B BUF GA' SHDN' D11 D10 D9 D8 D7 D6 D5 D4 D3 D2 D1 D0
 ISR(TIMER0_COMPA_vect) {		
 	phase++;                    // Sawtooth, ~0.244 Hz
     PORTB &= ~(1 << PB0);       // Clear PB0 (select DAC chip by outputing LOW)
-	spi.write_u16(0b0101000000000000 | (phase >> 4));		
+	spi.write_u16(0b0111000000000000 | (phase >> 4));		
 	PORTB |= (1 << PB0);        // Set PB0 (deselect DAC chip by outputing HIGH)
 }
 ```
 
-Note we replace even Arduino's `digitalWrite()` with faster, low-level alternatives to clearing and setting pins on (in this case) `PORTB`'s pin 0 directly. That's after configuring the pin as an output using the port's data direction register `DDRB`. 
+*Note we replace even Arduino's `digitalWrite()` with faster, low-level alternatives to clearing and setting pins on (in this case) `PORTB`'s pin 0 directly. That's after configuring the pin as an output using the port's data direction register `DDRB`.*
 
 ## 4 Fixed Point Format
 
