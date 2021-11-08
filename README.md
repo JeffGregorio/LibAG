@@ -18,17 +18,25 @@ Memory use is also minimized by storing pre-computed, normalized tables in flash
 
 ## 2 Introduction
 
-In discrete time, it is impossible to generate or reproduce frequencies more half the sample rate (the Nyquist rate), and that's without accounting for the portion of the passband that'll be attenuated by the reconstruction filter. This means the higher the sample rate, the better.
+In discrete time, the Nyquist-Shannon sampling theorem shows that it is impossible to generate or reproduce frequencies higher than half the sample rate (often called the Nyquist rate). In fact, the stepped waveform produced by a digital to analog converter (DAC) will contain frequencies above this rate, but they are merely frequency-shifted copies of the baseband signal, or aliases. 
 
-Although sample rates like 44.1 or 48kHz permit only the most minimal computation on these AVRs, lower rates are emanently usable in modular synth applications like low frequency oscillators, envelope generators and followers, MIDI to CV converters, sequencers, etc., making these processors more than appropriate. 
+The job of the reconstruction filter that follows a DAC is to significantly attenuate everything above the Nyquist rate. A high order analog low-pass filter can give good attenuation at Nyquist and a sharp transition band, i.e. a nice, wide passband that gives the unity gain treatment to frequencies approaching Nyquist before it starts a sharp decline. This of course entails lots of op amps, cost, and board space plus added sensitivity to component tolerances.
 
-To get the most out of the processor, we'll replace otherwise admirable Arduino staples like `delay()`, `millis()`, `analogWrite()`, `analogRead()`. Their generality is no free lunch, and the peripherals they use (timers and converters) can be much better configured for our task. 
+Higher sample rates lessen the requirements on reconstruction filters. They also  improve the quality of harmonically-rich waveforms or harmonic distortion, where we could easily find ourselves naively trying to synthesize upper partials that *want* to be above Nyquist, only to find themselves folded back into the audio band as aliases--just as a consequence of discrete time itself, i.e. where even the steepest reconstruction filter won't save us. 
 
-What we'll need is a fuction that runs at a regular sample rate, and a way of converting from digital to analog and vice versa that takes up as little of the sample period as possible--leaving the rest for DSP code. 
+The point is that higher sample rates are usually better.
 
-A timer in one of its Pulse Width Modulation (PWM) modes can be used as a DAC. Ideally we want the PWM rate well above the sample rate, so we use the aptly-named Fast PWM mode. We can configure automatic ADC conversions at a regular rate, either using the ADC on its own (free running mode), with an external signal, or using a timer in Clear Timer on Compare Match (CTC) mode. 
+Although standard sample rates like 44.1kHz and 48kHz permit only the most minimal computation on these AVRs, lower rates are emanently usable in modular synth applications like low frequency oscillators, envelope generators and followers, MIDI to CV converters, sequencers, etc., making these processors more than appropriate. 
 
-Rather than `loop()`, we'll do our processing in interrupt service routines (ISRs) either called by a timer or by the ADC after it completes a conversion. 
+To get the most out of the processor, we'll replace Arduino staples like `delay()`, `millis()`, `analogWrite()`, `analogRead()`. Their admirable generality is no free lunch, and the peripherals they use (timers and converters) can be much better configured for our task. On an Uno, `analogRead()` alone takes a whopping 110&#956;s to convert a single sample, meaning we could forget about sample rates above 8-9kHz even with the most minimal processing. 
+
+What we need is a fuction that runs at a regular sample rate, and a way of converting from digital to analog and vice versa that takes up as little of the sample period as possible--leaving the rest for DSP code. LibAG's configuration of the ADC, for example, reduces the overhead for conversions to under 2&#956;s by offloading most of the work to the ADC itself. 
+
+Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and understanding them is not rocket surgery. They have an 8- or 16-bit value that increments by 1 on the edge of a clock, and another 8- or 16-bit value we can compare with the first. We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match sets a pin high or low. In Clear Timer on Compare Match (CTC) mode, a compare match resets the value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
+
+We can use them as DACs in PWM mode if we configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why modulating, say, a 2000Hz sine wave on a 960Hz pulse is a fool's errand. 
+
+Our timing needs (churning out samples at a regular rate) can be handled with no overhead by timers in CTC mode, by external clock signals, or even by the ADC alone. To do this, we'll do our processing in ISRs instead of `loop()`. 
 
 ## 3 Peripheral Drivers: Basic Usage 
 ### 3.1 Timers in PWM and CTC Modes
@@ -52,25 +60,25 @@ void setup() {
 
 ...
 
-ISR(TIMER0_COMPA_vect) {		
-	phase++;						// Sawtooth, ~0.244 Hz
+ISR(TIMER0_COMPA_vect) {			// Called at 16kHz (every 62.5us)
+	phase++;						// 16-bit sawtooth, ~0.244 Hz
 	timer2.pwm_write_a(phase >> 8);	// Write 8-bit signal to pin OCR2A
 }
 ```
 
-Notice that sample rates and PWM rates are determined in part by prescalers, which are values used to divide the system clock (16MHz on the Arduino Uno, Nano, Mega) that drives the peripheral. Timer 0, in the above example ticks forward (adding one to its 8-bit count value) at one eighth the rate of a timer 2. 
+Notice that sample rates and PWM rates are determined in part by prescalers, which are values used to divide the system clock (16MHz on the Arduino Uno, Nano, Mega) that drives the timer. In the above example, timer 0 ticks forward at one eighth the rate of a timer 2. 
 
 Prescaler options for Timer 0 and Timer 1 include {1, 8, 64, 256, 1024}. Timer 2 has additional prescaler options including {1, 8, 32 64, 128, 256, 1024}. 
 
-We're using 8-bit PWM so timer 2's period, ergo the PWM rate, is the time it takes the timer to count from 0 to 255 and overflow back to 0. To output a PWM signal to pin OCR2A, we supply an 8-bit value to the timer's `pwm_write_a()` method. The timer compares this value to its count and toggles the OCR2A pin when they match. 
+We're using 8-bit PWM so timer 2's period (the PWM rate) is the time it takes the timer to count from 0 to 255 and overflow back to 0. To output a PWM signal to pin OCR2A, we supply an 8-bit value to the timer's `pwm_write_a()` method. The timer compares this value to its count and toggles the OCR2A pin when they match. 
 
-Timer 0 controls sample timing using CTC mode and a larger prescaler. Rather than toggling a pin on compare match like PWM mode, CTC mode calls the (in this case) A channel's interrupt service routine *and resets the timer count*, meaning the rate is a function of the compare value rather than the timer's full resolution. 
+Timer 0 controls sample timing using CTC mode and a larger prescaler. Recall that CTC mode calls a timer channel's interrupt service routine *and resets the timer count*, meaning the rate is a function of the compare value rather than the timer's full resolution. 
 
 Side note: we could have divided the 16-bit phase by 256 to obtain an 8-bit output value, but division is generally slow and to be avoided if possible. Divison by a power of two is much, much faster via bit shifting. 
 
 ### 3.2 ADC Free Running Mode
 
-In this example, we use the ADC's free running mode to automatically scan two channels at about 19kHz, multiply their values, and output the result. Notice the effective input sample rate for each channel is half the output sample rate, as the ADC only converts from one channel at a time. 
+In this example, we use the ADC's free running mode to automatically scan two channels at about 19kHz, multiply their values, and output the result. The effective input sample rate for each channel is the output sample rate (19kHz) divided by the number of ADC channels scanned. 
 
 ```C
 #include "ADCAuto.h"
@@ -98,7 +106,7 @@ ISR(ADC_vect) {					// Called after ADC conversion completes
 }
 ```
 
-Notice the ADC has a prescaler as well, which determines the free running rate alongside the fixed 13 clock cycles it takes the ADC to complete a conversion. Per the processor datasheet's recommendation, the ADC clock (i.e. the system clock divided by the ADC's prescaler) should be under 200kHz to guarantee full 10-bit resolution. 
+Notice the ADC has a prescaler as well, which determines the free running rate alongside the 13 clock cycles it takes the ADC to complete a conversion. Per the processor datasheet's recommendation, the ADC clock (i.e. the system clock divided by the ADC's prescaler) should be under 200kHz to guarantee full 10-bit resolution. 
 
 With prescaler options {2, 4, 8, 16, 32, 64, 128}, this means only 128 provides full resolution. As in this example, ADC clocks up to 1MHz can be used if we don't mind trading *effective* resolution for speed (note we still retrieve results at 10-bit values). 
 
@@ -310,7 +318,7 @@ These classes use normalized frequencies specified as integer values rather than
 
 ### 5.1 Frequency Normalization
 
-Recall that the sample rate f<sub>s</sub> limits the frequencies we can capture and synthesize in discrete time. I.e. we are limited to frequencies below f<sub>s</sub>/2. Note in some cases we can use the negative frequency band down to -f<sub>s</sub>/2.
+Recall that the sample rate f<sub>s</sub> limits the frequencies we can capture and synthesize in discrete time, i.e. we are limited to frequencies below f<sub>s</sub>/2. Note in some cases we can use the negative frequency band down to -f<sub>s</sub>/2.
 
 If you're coming from an engineering background, you might be accustomed to seeing this interval normalized to (-&#960;, &#960;), a natural choice given the domain of periodic functions like sin, cos, and the complex exponential. The choice is arbitrary, however. For example, if we had hardware floating point we might use (-0.5, 0.5) as a convenience and scale these normalized frequencies to the former range by multiplying with 2&#960; if needed. 
 
@@ -432,7 +440,7 @@ Rather than generate separate tables over specific Q16 frequency ranges, it is u
 
 ![ExpTable](/images/exp.png)
 
-Thus, `tablegen` generates exponential tables with specified ratios 
+Therefore `tablegen` generates exponential tables with specified ratios 
 
 ```
 > python tablegen.py exp <ratio>
@@ -478,14 +486,13 @@ The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` i
 
 <img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] %2B \alpha(x[n] - y[n-1])">
 
-The `OnePole` classes provide no setter methods for the coefficient, as it is meant to be assigned directly. The coefficient &#945; is some function of the desired normalized cutoff frequency &#969;<sub>n</sub>. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency &#969;<sub>n</sub> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (or -3dB), giving a value 
+The coefficient &#945; is some function of the desired normalized cutoff frequency &#969;<sub>n</sub>. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency &#969;<sub>n</sub> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (or -3dB), giving a value 
 
 <img src="https://render.githubusercontent.com/render/math?math=\alpha = -b %2B \sqrt{b^2 %2B 2b}">
 
 with 
 
 <img src="https://render.githubusercontent.com/render/math?math=b = 1 - cos(\omega_n)">
-
 
 which is expensive to compute. Common approximations are derived from discretizing the filter's differential equation using the finite differences method, yielding 
 
@@ -496,6 +503,8 @@ or by solving the differential equation and discretizing its transient response,
 <img src="https://render.githubusercontent.com/render/math?math=\alpha = 1 - e^{-\omega_n}">
 
 which are also expensive to compute. We can plot each of the coefficient approximations as the normalized radian frequency varies up to &#969;<sub>n</sub> = &#960;. We can see that these curves are not self-similar, thus cannot be normalized and rescaled for different frequency ranges and sample rates as the exponential curves can. 
+
+The following plots show how the magnitude and phase responses (second and third plots) vary with the four coefficient curves across a range of cutoff frequencies (vertical dashed line), compared with the equivalent analog filter response.
 
 ![Coefficients](/images/coeffs_light.png)
 
@@ -513,13 +522,13 @@ For example, at f<sub>s</sub> = 16kHz, an exact filter coefficient table mapping
 > python tablegen.py coeff z 0.001 0.1
 ```
 
-Thus, the sample rate must be known at the time the table is generated to obtain accurate cutoff frequencies. 
+Therefore the sample rate must be known at the time the table is generated to obtain accurate cutoff frequencies. 
 
 A more flexible option for cutoff frequencies much less than f<sub>s</sub>/2 is to note that each coefficient table is approximately exponential for low frequencies, where the frequency &#969;<sub>n</sub> serves as a usable approximation of &#945;. This approximation yields a stable filter for &#969;<sub>n</sub> < 1, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
 
 ![Coefficients and Frequency Response](/images/coeffs_light.gif)
 
-This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with more or less the same frequency responses over a cutoff frequency range of approximately (0.2, 2000)Hz. 
+This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with, for musical purposes, functionally equivalent frequency responses over a cutoff frequency range of (0.2, 2000)Hz. 
 
 #### Option 1
 The following yields accurate cutoff frequencies over its range as long as f<sub>s</sub> = 16kHz. 
@@ -545,7 +554,7 @@ ISR(ADC_vect) {
 ```
 
 #### Option 2
-The following yields less accurate cutoff frequencies toward its maximum value, but sample rates can be changed without regenerating the table. 
+The following yields less accurate cutoff frequencies toward its *maximum* value, but sample rates can be changed without regenerating the table. 
 
 ```
 > python tablegen.py exp 10000
@@ -571,7 +580,7 @@ ISR(ADC_vect) {
 ```
 
 #### Option 3
-The following yields less accurate cutoff frequencies toward its minimum value, but sample rates can be changed without regenerating the table. 
+The following yields less accurate cutoff frequencies toward its *minimum* value, but sample rates can be changed without regenerating the table. 
 
 ```
 > python tablegen.py exp 10000
@@ -616,7 +625,7 @@ The op amp can be powered with a single supply if a bipolar supply is unavailabl
 
 This example implements a basic MIDI to CV/Gate converter using `Timer1` configured for 12-bit PWM. The example illustrates the use of `MIDIDispatcher`, a minimal state machine for parsing MIDI message bytes and delegating control to user-defined message handlers. Only `Note On` and `Note Off` messages are handled in the example, but the dispatcher includes handlers for pitch bends, mod wheel, etc.
 
-This example is the only one included which uses Arduino's `void loop()`, as it does not require signals to be generated at a fixed rate. `SoftwareSerial` is used to receive raw MIDI bytes and relay them to `MIDIDispatcher`. I recommend the following MIDI input circuit.
+This example is the only one included which uses Arduino's `loop()`, as it does not require signals to be generated at a fixed rate. `SoftwareSerial` is used to receive raw MIDI bytes and relay them to `MIDIDispatcher`. I recommend the following MIDI input circuit.
 
 ![MIDI In](/images/midi-in.png)
 
