@@ -4,6 +4,10 @@ C++ library for audio synthesis on AVR-based Arduino microcontrollers, developed
 
 This library should be an accessible entry point for Arduino hobbyists and engineering students wanting to explore real-time audio synthesis at a lower level of abstraction than similar libraries. It's meant to be more efficient, readable, and workable than general and feature-laden.
 
+## 0 Installation
+
+To use with the Arduino IDE, download this repository as a ZIP and place in your Arduino/libraries directory, likely ~/Documents/Arduino/libraries/ on Mac OS and \My Documents\Arduino\libraries\ on Windows. 
+
 ## 1 Overview
 
 LibAG offers a small set of peripheral controllers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with external DACs. 
