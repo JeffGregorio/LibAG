@@ -10,14 +10,17 @@ To use with the Arduino IDE, download this repository as a ZIP and place in your
 
 ## 1 Overview
 
-LibAG offers a small set of peripheral controllers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with external DACs. 
+LibAG offers a small set of peripheral drivers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with external DACs. 
 
-It also includes a small set of digital signal processing (DSP) objects and utility functions that demonstrate techniques for working within the limitations of 8-bit AVR processors. This includes fixed point math and table-based approaches to sinusoidal synthesis, exponential parameter control, and filter coefficients.
+It also includes a small set of digital signal processing (DSP) objects and utility functions that demonstrate code appropriate for 8-bit AVR limitations. This includes fixed point math and table-based approaches to sinusoidal synthesis, exponential parameter control, and filter coefficients.
 
-Memory use is also minimized by storing pre-computed, normalized tables in flash memory and rescaling outputs. Several exponential tables are provided alongside a python script for generating others. 
+Memory use is minimized by storing pre-computed, normalized tables in flash memory and rescaling outputs. Several exponential tables are provided alongside a python script for generating others. 
 
 ## 2 Introduction
-### Importance of Sample Rate
+
+This section contains a brief library motivation for the uninitiated. Readers for whom sampling, aliasing, reconstruction, timers, ADCs, and interrupts are familiar concepts might skip directly to examples in Section 3. 
+
+### The Importance of Sample Rate
 In discrete time, the Nyquist-Shannon sampling theorem shows that it is impossible to generate or reproduce frequencies higher than half the sample rate (often called the Nyquist rate). In fact, the stepped waveform produced by a digital to analog converter (DAC) will contain frequencies above this rate, but they are merely frequency-shifted copies of the baseband signal, or aliases. 
 
 The job of the reconstruction filter that follows a DAC is to significantly attenuate everything above the Nyquist rate. A high order analog low-pass filter can give good attenuation at Nyquist and a sharp transition band, i.e. a nice, wide passband that gives the unity gain treatment to frequencies approaching Nyquist before it starts a sharp decline. This of course entails lots of op amps, cost, and board space plus added sensitivity to component tolerances.
@@ -37,7 +40,7 @@ Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and underst
 
 We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match sets a pin high or low. In Clear Timer on Compare Match (CTC) mode, a compare match resets the value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
 
-We can use them as DACs in PWM mode if we configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why modulating, say, a 2000Hz sine wave on a 960Hz pulse is a fool's errand. 
+We can use timers as DACs in PWM mode if we configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why modulating, say, a 2000Hz sine wave on a 960Hz pulse is a fool's errand. 
 
 Our timing needs (churning out samples at a regular rate) can be handled with no overhead by timers in CTC mode, by external clock signals, or even by the ADC alone. To do this, we'll do our processing in ISRs instead of `loop()`. 
 
@@ -77,7 +80,7 @@ We're using 8-bit PWM so timer 2's period (the PWM rate) is the time it takes th
 
 Timer 0 controls sample timing using CTC mode and a larger prescaler. Recall that CTC mode calls a timer channel's interrupt service routine *and resets the timer count*, meaning the rate is a function of the compare value rather than the timer's full resolution. 
 
-Side note: we could have divided the 16-bit phase by 256 to obtain an 8-bit output value, but division is generally slow and to be avoided if possible. Divison by a power of two is much, much faster via bit shifting. 
+*Side note: we could have divided the 16-bit phase by 256 to obtain an 8-bit output value, but division is generally slow and to be avoided if possible. Divison by a power of two is much, much faster via bit shifting.*
 
 ### 3.2 ADC Free Running Mode
 
