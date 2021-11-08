@@ -445,11 +445,15 @@ Note that due to the division via right shift, table lengths must be a power of 
 
 Exponential tables of length N and index n in [0, N-1] can be generated over a nonzero range (e<sub>0</sub>, e<sub>1</sub>) using
 
-<img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}"> 
+<p align="center">
+	<img src="https://render.githubusercontent.com/render/math?math=y[n] = e_0 \cdot c^{n}"> 
+</p>
 
 where 
 
-<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[{N-1}]{\frac{e_1}{e_0}}">
+<p align="center">
+	<img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[{N-1}]{\frac{e_1}{e_0}}">
+</p>
 
 Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF`, and dynamically re-scale the output using a UQ16 multiply. This places the maximum value at the UQ16 scaling factor, and the minimum value at scale/ratio, where the ratio is e<sub>1</sub>/e<sub>0</sub>.
 
