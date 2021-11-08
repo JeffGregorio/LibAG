@@ -507,23 +507,33 @@ ISR(ADC_vect) {
 
 The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` implement a multimode filter with variable cutoff frequency. The filter implements the difference equation of an exponential moving average filter
 
-<img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] %2B \alpha(x[n] - y[n-1])">
+<p align="center">
+	<img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] %2B \alpha(x[n] - y[n-1])">
+</p>
 
 The coefficient &#945; is some function of the desired normalized cutoff frequency &#969;<sub>n</sub>. One can obtain a coefficient such that the -3dB cutoff frequency corresponds exactly to the desired frequency &#969;<sub>n</sub> by equating the magnitude of the difference equation's Z-transform to <img src="https://render.githubusercontent.com/render/math?math=\frac{1}{\sqrt{2}}"> (or -3dB), giving a value 
 
-<img src="https://render.githubusercontent.com/render/math?math=\alpha = -b %2B \sqrt{b^2 %2B 2b}">
+<p align="center">
+	<img src="https://render.githubusercontent.com/render/math?math=\alpha = -b %2B \sqrt{b^2 %2B 2b}">
+</p>
 
 with 
 
-<img src="https://render.githubusercontent.com/render/math?math=b = 1 - cos(\omega_n)">
+<p align="center">
+	<img src="https://render.githubusercontent.com/render/math?math=b = 1 - cos(\omega_n)">
+</p>
 
 which is expensive to compute. Common approximations are derived from discretizing the filter's differential equation using the finite differences method, yielding 
 
-<img src="https://render.githubusercontent.com/render/math?math=\alpha = \frac{\omega_n}{\omega_n %2B 1}">
+<p align="center">
+	<img src="https://render.githubusercontent.com/render/math?math=\alpha = \frac{\omega_n}{\omega_n %2B 1}">
+</p>
 
 or by solving the differential equation and discretizing its transient response, yielding
 
-<img src="https://render.githubusercontent.com/render/math?math=\alpha = 1 - e^{-\omega_n}">
+<p align="center">
+	<img src="https://render.githubusercontent.com/render/math?math=\alpha = 1 - e^{-\omega_n}">
+</p>
 
 which are also expensive to compute. We can plot each of the coefficient approximations as the normalized radian frequency varies up to &#969;<sub>n</sub> = &#960;. We can see that these curves are not self-similar, thus cannot be normalized and rescaled for different frequency ranges and sample rates as the exponential curves can. 
 
