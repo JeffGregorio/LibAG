@@ -49,23 +49,23 @@ In this example, Timer 0 gives us a 16kHz sample rate to render a low-frequency 
 ```C
 #include "Timer.h"
 
-Timer0 timer0;		// Sample rate trigger
-Timer2 timer2;		// PWM output
+Timer0 timer0;    // Sample rate trigger
+Timer2 timer2;    // PWM output
 
-volatile uint16_t phase = 0;	// 16-bit phase in [0, 0xFFFF]
+volatile uint16_t phase = 0;    // 16-bit phase in [0, 0xFFFF]
 
 void setup() {
 	timer2.set_prescaler(1);
-	timer2.init_pwm();			// 8-bit PWM rate 16e6/1/256 = 62.5kHz
+	timer2.init_pwm();          // 8-bit PWM rate 16e6/1/256 = 62.5kHz
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);       // Call ISR at 16e6/8/125 = 16kHz
 }
 
 ...
 
-ISR(TIMER0_COMPA_vect) {			// Called at 16kHz (every 62.5us)
-	phase++;						// 16-bit sawtooth, ~0.244 Hz
-	timer2.pwm_write_a(phase >> 8);	// Write 8-bit signal to pin OCR2A
+ISR(TIMER0_COMPA_vect) {.           // Called at 16kHz (every 62.5us)
+	phase++;                        // 16-bit sawtooth, ~0.244 Hz
+	timer2.pwm_write_a(phase >> 8); // Write 8-bit signal to pin OCR2A
 }
 ```
 
@@ -87,25 +87,25 @@ In this example, we use the ADC's free running mode to automatically scan two ch
 #include "ADCAuto.h"
 #include "Timer.h"
 
-Timer2 timer2;				// PWM output
-ADCFreeRunning adc(2);		// Analog inputs (A0, A1) and sample rate trigger
-volatile uint16_t a0, a1;	// ADC samples
+Timer2 timer2;              // PWM output
+ADCFreeRunning adc(2);      // Analog inputs (A0, A1) and sample rate trigger
+volatile uint16_t a0, a1;   // ADC samples
 
 void setup() {
-	timer2.set_prescaler(1);	// 8-bit PWM rate 16e6/1/256 = 62.5kHz
+	timer2.set_prescaler(1);    // 8-bit PWM rate 16e6/1/256 = 62.5kHz
 	timer2.init_pwm();
-	adc.set_prescaler(64);		// Convert and retrigger at 16e6/64/13 = 19.2kHz
+	adc.set_prescaler(64);      // Convert and retrigger at 16e6/64/13 = 19.2kHz
 	adc.init();
 }
 
 ...
 	
-ISR(ADC_vect) {					// Called after ADC conversion completes
-	adc.update();				// Scans the current channel and stores result
-	a0 = adc.results[0] >> 2;	// Convert ch 0 result to 8-bit
-	a1 = adc.results[1] >> 2;	// Convert ch 1 result to 8-bit
-	a0 = (a0 * a1) >> 8;		// 8-bit UQ multiply (see sec 4.1)
-	timer2.pwm_write_a(sample);	// Write to pin OCR2A
+ISR(ADC_vect) {                 // Called after ADC conversion completes
+	adc.update();               // Scans the current channel and stores result
+	a0 = adc.results[0] >> 2;   // Convert ch 0 result to 8-bit
+	a1 = adc.results[1] >> 2;   // Convert ch 1 result to 8-bit
+	a0 = (a0 * a1) >> 8;        // 8-bit UQ multiply (see sec 4.1)
+	timer2.pwm_write_a(sample); // Write to pin OCR2A
 }
 ```
 
@@ -123,30 +123,30 @@ A more flexible solution for triggering conversions is to use Timer 0's CTC mode
 #include "ADCAuto.h"
 #include "Timer.h"
 
-Timer0 timer0;				// ADC trigger source 
-Timer2 timer2;				// PWM output
-ADCTimer0 adc(2);			// Analog inputs (A0, A1)
-volatile uint16_t a0, a1;	// ADC samples
+Timer0 timer0;              // ADC trigger source 
+Timer2 timer2;              // PWM output
+ADCTimer0 adc(2);           // Analog inputs (A0, A1)
+volatile uint16_t a0, a1;   // ADC samples
 
 void setup() {
-	timer2.set_prescaler(1);	// 8-bit PWM rate 16e6/1/256 = 62.5kHz
+	timer2.set_prescaler(1);    // 8-bit PWM rate 16e6/1/256 = 62.5kHz
 	timer2.init_pwm();
-	adc.set_prescaler(64);		// Maximum conversion rate 16e6/64/13 = 19.2kHz
+	adc.set_prescaler(64);      // Maximum conversion rate 16e6/64/13 = 19.2kHz
 	adc.init();
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);       // Call ISR at 16e6/8/125 = 16kHz
 }
 
-ISR(TIMER0_COMPA_vect) {	// Called on channel A compare match
-	;	// Implicitly triggers ADC conversion; nothing to do
+ISR(TIMER0_COMPA_vect) {.       // Called on channel A compare match
+	;           // Implicitly triggers ADC conversion; nothing to do
 }
 
-ISR(ADC_vect) {		// Called after ADC conversion completes
-	adc.update();	// Scans the current channel and stores result
-	a0 = adc.results[0] >> 2;	// Convert ch 0 result to 8-bit
-	a1 = adc.results[1] >> 2;	// Convert ch 1 result to 8-bit
-	a0 = (a0 * a1) >> 8;		// 8-bit multiply
-	timer2.pwm_write_a(sample);	// Write to pin OCR2A
+ISR(ADC_vect) {.    // Called after ADC conversion completes
+	adc.update();   // Scans the current channel and stores result
+	a0 = adc.results[0] >> 2;   // Convert ch 0 result to 8-bit
+	a1 = adc.results[1] >> 2;   // Convert ch 1 result to 8-bit
+	a0 = (a0 * a1) >> 8;        // 8-bit multiply
+	timer2.pwm_write_a(sample); // Write to pin OCR2A
 }
 ```
 
@@ -158,26 +158,26 @@ This simple sample and hold CV processor triggers ADC conversions on the rising 
 #include "ADCAuto.h"
 #include "Timer.h"
 
-ADCInt0 adc(1);		// Analog input A0 and sample rate trigger
-Timer2 timer2;		// PWM output
+ADCInt0 adc(1);     // Analog input A0 and sample rate trigger
+Timer2 timer2;      // PWM output
 
-volatile uint16_t sample;		// CV sample
+volatile uint16_t sample;       // CV sample
 
 void setup() {
-	timer2.set_prescaler(1);	// 8-bit PWM rate 16e6/1/256 = 62.5kHz
+	timer2.set_prescaler(1);    // 8-bit PWM rate 16e6/1/256 = 62.5kHz
 	timer2.init_pwm();
-	adc.set_prescaler(64);		// Maximum conversion rate 16e6/64/13 = 19.2kHz
+	adc.set_prescaler(64);      // Maximum conversion rate 16e6/64/13 = 19.2kHz
 	adc.init();
 }
 
-ISR(INT0_vect) {	// Clalled on INT0 rising edge
-	;	// Implicitly triggers ADC conversion; nothing to do
+ISR(INT0_vect) {    // Clalled on INT0 rising edge
+	;     // Implicitly triggers ADC conversion; nothing to do
 }
 
-ISR(ADC_vect) {		// Called after ADC conversion completes
-	adc.update();	// Scan the current channel and store result
-	sample = adc.results[0] >> 2;	// Scale 10- to 8-bit
-	timer2.pwm_write_a(sample);		// Write to pin OCR2A
+ISR(ADC_vect) {.    // Called after ADC conversion completes
+	adc.update();   // Scan the current channel and store result
+	sample = adc.results[0] >> 2;   // Scale 10- to 8-bit
+	timer2.pwm_write_a(sample);     // Write to pin OCR2A
 }
 ```
 
@@ -193,23 +193,23 @@ Here, we modify the previous example for 10-bit output as well as input.
 #include "ADCAuto.h"
 #include "Timer.h"
 
-ADCInt0 adc(1);		// Analog input A0 and sample rate trigger
-Timer1 timer1;		// PWM output
+ADCInt0 adc(1);     // Analog input A0 and sample rate trigger
+Timer1 timer1;      // PWM output
 
 void setup() {
 	timer1.set_prescaler(1);	
-	timer1.init_pwm(1023);		// 10-bit PWM rate 16e6/1/1024 = 15.625kHz
-	adc.set_prescaler(64);		// Maximum conversion rate 16e6/64/13 = 19.2kHz
+	timer1.init_pwm(1023);      // 10-bit PWM rate 16e6/1/1024 = 15.625kHz
+	adc.set_prescaler(64);      // Maximum conversion rate 16e6/64/13 = 19.2kHz
 	adc.init();
 }
 
-ISR(INT0_vect) {	// Clalled on INT0 rising edge
-	;	// Implicitly triggers ADC conversion; nothing to do
+ISR(INT0_vect) {     // Clalled on INT0 rising edge
+	;    // Implicitly triggers ADC conversion; nothing to do
 }
 
-ISR(ADC_vect) {		// Called after ADC conversion completes
-	adc.update();	// Scan the current channel and store result
-	timer1.pwm_write_a(adc.results[0]);	// Write to pin OCR1A
+ISR(ADC_vect) {      // Called after ADC conversion completes
+	adc.update();    // Scan the current channel and store result
+	timer1.pwm_write_a(adc.results[0]); // Write to pin OCR1A
 }
 ```
 
@@ -229,16 +229,16 @@ Revisiting the first example, we could now synthesize a sawtooth at 12-bit ampli
 #include "Timer.h"
 #include "SPI.h"
 
-Timer0 timer0;					// Sample rate trigger
-SPIMaster spi;					// SPI to DAC
+Timer0 timer0;      // Sample rate trigger
+SPIMaster spi;      // SPI to DAC
 
-volatile uint16_t phase = 0;	// 16-bit phase in [0, 0xFFFF]
+volatile uint16_t phase = 0;    // 16-bit phase in [0, 0xFFFF]
 
 void setup() {
-	spi.init();					// Start SPI with 4MHz clock
-	DDRB |= (1 << PB0);			// Configure pin PB0 as output (use as CS pin)
+	spi.init();                 // Start SPI with 4MHz clock
+	DDRB |= (1 << PB0);         // Configure pin PB0 as output (use as CS pin)
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);       // Call ISR at 16e6/8/125 = 16kHz
 }
 
 ...
@@ -246,10 +246,10 @@ void setup() {
 // Note the use of MCP4922's control word:
 // A'/B BUF GA' SHDN' D11 D10 D9 D8 D7 D6 D5 D4 D3 D2 D1 D0
 ISR(TIMER0_COMPA_vect) {		
-	phase++;					// Sawtooth, ~0.244 Hz
-    PORTB &= ~(1 << PB0);		// Clear PB0 (select DAC chip by outputing LOW)
+	phase++;                    // Sawtooth, ~0.244 Hz
+    PORTB &= ~(1 << PB0);       // Clear PB0 (select DAC chip by outputing LOW)
 	spi.write_u16(0b0101000000000000 | (phase >> 4));		
-	PORTB |= (1 << PB0);		// Set PB0 (deselect DAC chip by outputing HIGH)
+	PORTB |= (1 << PB0);        // Set PB0 (deselect DAC chip by outputing HIGH)
 }
 ```
 
@@ -339,26 +339,26 @@ And here we revisit the sawtooth example with a frequency specified in Hz.
 ```C
 #include "Timer.h"
 
-const float f_s = 16e3;		// Sample rate
+const float f_s = 16e3;     // Sample rate
 
-Timer0 timer0;		// Sample rate trigger
-Timer2 timer2;		// PWM output
+Timer0 timer0;      // Sample rate trigger
+Timer2 timer2;      // PWM output
 
-volatile uint16_t phase = 0;				  // 16-bit phase in [0, 0xFFFF]
+volatile uint16_t phase = 0;                  // 16-bit phase in [0, 0xFFFF]
 volatile int16_t freq = 20.0f / f_s * 0xFFFF; // 16-bit freq in [-0x8000, 0x7FFF]
 
 void setup() {
 	timer2.set_prescaler(1);
-	timer2.init_pwm();			// 8-bit PWM rate 16e6/1/256 = 62.5kHz
+	timer2.init_pwm();          // 8-bit PWM rate 16e6/1/256 = 62.5kHz
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);       // Call ISR at 16e6/8/125 = 16kHz
 }
 
 ...
 
 ISR(TIMER0_COMPA_vect) {		
-	phase += freq;					// Sawtooth, ~20 Hz
-	timer2.pwm_write_a(phase >> 8);	// Write 8-bit signal to pin OCR2A
+	phase += freq;                  // Sawtooth, ~20 Hz
+	timer2.pwm_write_a(phase >> 8); // Write 8-bit signal to pin OCR2A
 }
 ```
 
@@ -423,7 +423,7 @@ Wavetable16 lfo(sine_u16x1024, 6);
 
 ISR(/* interrupt vector */) {
 	lfo.freq = /* frequency in [-0x8000, 7FFFF] */;			
-	sine_val = lfo.render();	// Render a sine wave sample
+	sine_val = lfo.render();     // Render a sine wave sample
 }
 ```
 
