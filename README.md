@@ -17,7 +17,7 @@ It also includes a small set of digital signal processing (DSP) objects and util
 Memory use is also minimized by storing pre-computed, normalized tables in flash memory and rescaling outputs. Several exponential tables are provided alongside a python script for generating others. 
 
 ## 2 Introduction
-
+### Importance of Sample Rate
 In discrete time, the Nyquist-Shannon sampling theorem shows that it is impossible to generate or reproduce frequencies higher than half the sample rate (often called the Nyquist rate). In fact, the stepped waveform produced by a digital to analog converter (DAC) will contain frequencies above this rate, but they are merely frequency-shifted copies of the baseband signal, or aliases. 
 
 The job of the reconstruction filter that follows a DAC is to significantly attenuate everything above the Nyquist rate. A high order analog low-pass filter can give good attenuation at Nyquist and a sharp transition band, i.e. a nice, wide passband that gives the unity gain treatment to frequencies approaching Nyquist before it starts a sharp decline. This of course entails lots of op amps, cost, and board space plus added sensitivity to component tolerances.
@@ -28,11 +28,14 @@ The point is that higher sample rates are usually better.
 
 Although standard sample rates like 44.1kHz and 48kHz permit only the most minimal computation on these AVRs, lower rates are emanently usable in modular synth applications like low frequency oscillators, envelope generators and followers, MIDI to CV converters, sequencers, etc., making these processors more than appropriate. 
 
+### Limitations of Arduino-style I/O
 To get the most out of the processor, we'll replace Arduino staples like `delay()`, `millis()`, `analogWrite()`, `analogRead()`. Their admirable generality is no free lunch, and the peripherals they use (timers and converters) can be much better configured for our task. On an Uno, `analogRead()` alone takes a whopping 110&#956;s to convert a single sample, meaning we could forget about sample rates above 8-9kHz even with the most minimal processing. 
 
 What we need is a fuction that runs at a regular sample rate, and a way of converting from digital to analog and vice versa that takes up as little of the sample period as possible--leaving the rest for DSP code. LibAG's configuration of the ADC, for example, reduces the overhead for conversions to under 2&#956;s by offloading most of the work to the ADC itself. 
 
-Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and understanding them is not rocket surgery. They have an 8- or 16-bit value that increments by 1 on the edge of a clock, and another 8- or 16-bit value we can compare with the first. We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match sets a pin high or low. In Clear Timer on Compare Match (CTC) mode, a compare match resets the value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
+Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and understanding them is not rocket surgery. They have an 8- or 16-bit value that increments by 1 on the edge of a clock, and another 8- or 16-bit value we can compare with the first. 
+
+We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match sets a pin high or low. In Clear Timer on Compare Match (CTC) mode, a compare match resets the value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
 
 We can use them as DACs in PWM mode if we configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why modulating, say, a 2000Hz sine wave on a 960Hz pulse is a fool's errand. 
 
