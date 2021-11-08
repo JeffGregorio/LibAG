@@ -13,13 +13,13 @@
  *   R1 = R2 = 4.7k and C1 = C2 = 0.1uF.
  */
 
-#include "Timer.h"
-#include "ADCAuto.h"
-#include "Envelope.h"
-#include "PgmTable.h"
-#include "FixedPoint.h"
+#include <Timer.h>
+#include <ADCAuto.h>
+#include <Envelope.h>
+#include <PgmTable.h>
+#include <FixedPoint.h>
 
-#include "tables/exp100_u16x1024.h"
+#include <tables/exp100_u16x1024.h>
 
 /* 
  * Timer 0 determines sample rate (fs = 16e6/8/200 = 10kHz)
@@ -76,7 +76,7 @@ void setup() {
 
   // CTC
   timer0.set_prescaler(T0_PS);
-  timer0.init_ctc(T0_OC);
+  timer0.init_ctc(T0_OC-1);
 
   // PWM
   timer1.set_prescaler(T1_PS);
@@ -123,7 +123,7 @@ ISR(ADC_vect) {
   asr.atk_rate = rate_table.lookup_scale(1023 - adc.results[0]);
   asr.rel_rate = rate_table.lookup_scale(1023 - adc.results[1]);
   
-  // Gate on falling edge on pin D4
+  // Gate on rising edge on pin D4
   gate_in = PIND & (1 << PD4);  
   if (state_gate != gate_in) {
     asr.gate(gate_in);
@@ -133,7 +133,7 @@ ISR(ADC_vect) {
   // Render the envelope
   sample = asr.render();
 
-  // Right-shift by 22 bits to get 10-bit value 
+  // Right-shift by 6 bits to get 10-bit value 
   timer1.pwm_write_a(sample >> 6); 
 
   PORTD &= ~(1 << PD2);

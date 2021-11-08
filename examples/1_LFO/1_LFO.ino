@@ -12,14 +12,14 @@
  *   R1 = R2 = 4.7k and C1 = C2 = 0.1uF.
  */
 
-#include "Timer.h"
-#include "ADCAuto.h"
-#include "Oscillator.h"
-#include "PgmTable.h"
-#include "FixedPoint.h"   
+#include <Timer.h>
+#include <ADCAuto.h>
+#include <Oscillator.h>
+#include <PgmTable.h>
+#include <FixedPoint.h>
 
-#include "tables/sine_u16x1024.h"
-#include "tables/exp1000_u16x1024.h"
+#include <tables/sine_u16x1024.h>
+#include <tables/exp1000_u16x1024.h>
 
 /* 
  * Timer 0 determines sample rate (fs = 16e6/8/200 = 10kHz)
@@ -74,7 +74,7 @@ void setup() {
 
   // CTC
   timer0.set_prescaler(T0_PS);
-  timer0.init_ctc(T0_OC);
+  timer0.init_ctc(T0_OC-1);
 
   // PWM
   timer1.set_prescaler(T1_PS);

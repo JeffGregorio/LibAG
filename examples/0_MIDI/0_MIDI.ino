@@ -7,8 +7,8 @@
  * - Handles basic note on/off messages
  */
 
-#include "Timer.h"
-#include "MIDIDispatcher.h"
+#include <Timer.h>
+#include <MIDIDispatcher.h>
 #include <SoftwareSerial.h>
 
 /* 

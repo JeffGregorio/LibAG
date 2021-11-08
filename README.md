@@ -6,7 +6,7 @@ This library should be an accessible entry point for Arduino hobbyists and engin
 
 ## 1 Overview
 
-The library offers a small set of peripheral controllers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with external DACs. 
+LibAG offers a small set of peripheral controllers and example sketches that demonstrate configuration of timers, ADC, interrupt service routines, and SPI for use with external DACs. 
 
 It also includes a small set of digital signal processing (DSP) objects and utility functions that demonstrate techniques for working within the limitations of 8-bit AVR processors. This includes fixed point math and table-based approaches to sinusoidal synthesis, exponential parameter control, and filter coefficients.
 
@@ -43,7 +43,7 @@ void setup() {
 	timer2.set_prescaler(1);
 	timer2.init_pwm();			// 8-bit PWM rate 16e6/1/256 = 62.5kHz
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(125);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
 }
 
 ...
@@ -119,7 +119,7 @@ void setup() {
 	adc.set_prescaler(64);		// Maximum conversion rate 16e6/64/13 = 19.2kHz
 	adc.init();
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(125);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
 }
 
 ISR(TIMER0_COMPA_vect) {	// Called on channel A compare match
@@ -183,7 +183,7 @@ Timer1 timer1;		// PWM output
 
 void setup() {
 	timer1.set_prescaler(1);	
-	timer1.init_pwm(1024);		// 10-bit PWM rate 16e6/1/1024 = 15.625kHz
+	timer1.init_pwm(1023);		// 10-bit PWM rate 16e6/1/1024 = 15.625kHz
 	adc.set_prescaler(64);		// Maximum conversion rate 16e6/64/13 = 19.2kHz
 	adc.init();
 }
@@ -223,7 +223,7 @@ void setup() {
 	spi.init();					// Start SPI with 4MHz clock
 	DDRB |= (1 << PB0);			// Configure pin PB0 as output (use as CS pin)
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(125);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
 }
 
 ...
@@ -336,7 +336,7 @@ void setup() {
 	timer2.set_prescaler(1);
 	timer2.init_pwm();			// 8-bit PWM rate 16e6/1/256 = 62.5kHz
 	timer0.set_prescaler(8);	
-	timer0.init_ctc(125);		// Call ISR at 16e6/8/125 = 16kHz
+	timer0.init_ctc(124);		// Call ISR at 16e6/8/125 = 16kHz
 }
 
 ...
@@ -424,7 +424,7 @@ where
 
 <img src="https://render.githubusercontent.com/render/math?math=c = \sqrt[{N-1}]{\frac{e_1}{e_0}}">
 
-Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF`, and dynamically re-scale the output using a UQ16 multiply. This places the maximum value at the UQ16 scaling factor, and the minimum value at scale/ratio, where the ratio is e<sub>0</sub>/e<sub>1</sub>.
+Rather than generate separate tables over specific Q16 frequency ranges, it is useful to normalize the table such that the maximum value is `0xFFFF`, and dynamically re-scale the output using a UQ16 multiply. This places the maximum value at the UQ16 scaling factor, and the minimum value at scale/ratio, where the ratio is e<sub>1</sub>/e<sub>0</sub>.
 
 ![ExpTable](/images/exp.png)
 
@@ -630,7 +630,7 @@ This example uses `OnePole16` to filter a square wave, writing the filter's low-
 
 ### 4_DAC
 
-This example uses `MCP4922` to control the external dual 12-bit SPI DAC of the same name. Its two channels are used to output sinusoidal waveforms offset by 90 degrees using the locally-defined `Quad16` oscillator class, which inherits from `Wavetable16`.
+This example uses `MCP4922`, a subclass of `SPIMaster`, to control the external dual 12-bit SPI DAC of the same name. Its two channels are used to output sinusoidal waveforms offset by 90 degrees using the locally-defined `Quad16` oscillator class, is a subclass of `Wavetable16`.
 
 ### A note on sample timing
 

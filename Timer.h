@@ -76,7 +76,7 @@ struct Timer0 {
 	 */
 	void init_pwm() {
     	// Enable output in OCR pins
-#ifdef __AVR_ATmega328P_
+#ifdef __AVR_ATmega328P__
 		DDRD |= (1 << PD6);	// (Ch A) Arduino Uno pin 6
 		DDRD |= (1 << PD5);	// (Ch B) Arduino Uno pin 5
 #elif __AVR_ATmega2560__

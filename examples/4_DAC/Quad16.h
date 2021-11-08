@@ -39,4 +39,4 @@ struct Quad16 : public Wavetable16 {
   uint16_t cosine;  // Current cosine sample
 };
 
-#endif
+#endif  // QUAD16_H

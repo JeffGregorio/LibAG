@@ -7,37 +7,38 @@
  * - Amplitude controlled with CV [0-5]V at ADC ch 1 (Arduino pin A1)
  * - Sample timing monitored at PD3 and PD2 (Arduino pins 3, and 2)
  * 
- * Required SPI connections
- * ------------------------ 
- * Name: Atmega328 Pin, Arduino Pin | Name: MCP4922 Pin
+ * Required SPI connections (see MCP4922.h for detail)
+ * ------------------------------------------------------
+ * Name: Atmega328 Pin, Uno/Nano Pin | Name: MCP4922 Pin
  * ======================================================
- *   SS:      14            D10     |  CS':     3
- *  SCK:      17            D13     |  SCK:     4
- * MOSI:      15            D11     |  SDI:     5
+ *  PB0:      12             D8      |  CS':     3
+ *  SCK:      17             D13     |  SCK:     4
+ * MOSI:      15             D11     |  SDI:     5
  */
 
-#include "Timer.h"
-#include "ADCAuto.h"
-#include "DACSPI.h"
-#include "Quad16.h"
-#include "PgmTable.h"
-#include "FixedPoint.h"   
+#include <Timer.h>
+#include <ADCAuto.h>
+#include <PgmTable.h>
+#include <FixedPoint.h>
 
-#include "tables/exp1000_u16x1024.h"
+#include <tables/exp1000_u16x1024.h>
+
+#include "MCP4922.h"  // Subclass of SPIMaster
+#include "Quad16.h"   // Subclass of Wavetable16
 
 /* 
- * Timer 0 determines sample rate (fs = 16e6/8/200 = 10kHz)
+ * Timer 0 determines sample rate (fs = 16e6/8/100 = 20kHz)
  * - Use fs less than ADC free running rate
  */
-const uint8_t T0_PS = 8;      // Prescaler
-const uint8_t T0_OC = 200;    // Output compare value
-const float fs = 16e6 / (float)T0_PS / (float)T0_OC;
+const uint8_t T0_PS = 8;     // Prescaler
+const uint8_t T0_OC = 99;    // Output compare value
+const float fs = 16e6 / (float)T0_PS / (float)(T0_OC + 1);
 
 /*
- * ADC prescaler determines maximum conversion rate 16e6/64/13 = ~19.2kHz
+ * ADC prescaler determines maximum conversion rate 16e6/32/13 = ~38.5kHz
  * - Note: prescaler < 128 trades quality for speed
  */
-const uint8_t ADC_PS = 64;
+const uint8_t ADC_PS = 32;
 
 /*
  * Peripheral drivers
@@ -71,7 +72,7 @@ void setup() {
   timer0.init_ctc(T0_OC);
 
   // DAC
-  dac.init();   
+  dac.init();  
 
   // ADC
   adc.set_prescaler(ADC_PS);  
