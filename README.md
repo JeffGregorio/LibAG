@@ -108,7 +108,7 @@ ISR(ADC_vect) {                 // Called after ADC conversion completes
 	a0 = adc.results[0] >> 2;   // Convert ch 0 result to 8-bit
 	a1 = adc.results[1] >> 2;   // Convert ch 1 result to 8-bit
 	a0 = (a0 * a1) >> 8;        // 8-bit UQ multiply (see sec 4.1)
-	timer2.pwm_write_a(sample); // Write to pin OCR2A
+	timer2.pwm_write_a(a0);     // Write to pin OCR2A
 }
 ```
 
@@ -149,7 +149,7 @@ ISR(ADC_vect) {.    // Called after ADC conversion completes
 	a0 = adc.results[0] >> 2;   // Convert ch 0 result to 8-bit
 	a1 = adc.results[1] >> 2;   // Convert ch 1 result to 8-bit
 	a0 = (a0 * a1) >> 8;        // 8-bit multiply
-	timer2.pwm_write_a(sample); // Write to pin OCR2A
+	timer2.pwm_write_a(a0);     // Write to pin OCR2A
 }
 ```
 
@@ -188,7 +188,7 @@ Here, we should not expect our external signal to successfully trigger conversio
 
 ### 3.5 Up to 16-bit PWM with Timer 1
 
-Timer 1 has the same prescaler options as Timer 0 {1, 8, 64, 256, 1024}, but has a 16-bit count and compare value. The libAG's `Timer1` class also uses a PWM mode that allows a variable resolution. 
+Timer 1 has the same prescaler options as Timer 0 {1, 8, 64, 256, 1024}, but has 16-bit count and compare values where Timers 0 and 2 have 8 bits for each. LibAG's `Timer1` class uses a PWM mode that allows a variable resolution. 
 
 Here, we modify the previous example for 10-bit output as well as input. 
 
@@ -226,7 +226,7 @@ The rate/resolution trade-off can be circumvented (at least at audio rates) by u
 --|--|--|--|--|--|--|--|--
 A'/B|BUF|GA'|SHDN'|D11|D10|...|D1|D0
 
-From MSbit to LSB bit, we have the channel selection (0 = A, 1 = B), buffer enable, 2x gain setting (active low), and shutdown (active low), followed by the 12 bits comprising an audio sample.
+From most significant to least significant bits, we have the channel selection (0 = A, 1 = B), voltage reference buffer enable, 2x gain setting (active low), and shutdown (active low), followed by the 12 bits comprising an audio sample.
 
 The AVR processors have an SPI peripheral which, at its maximum SPI clock rate of 4MHz can shift the control word's sixteen bits out at rates up to 4MHz/16 = 250kHz, ensuring 12-bit resolution at any sample rate we could achieve. 
 
@@ -537,8 +537,6 @@ or by solving the differential equation and discretizing its transient response,
 
 which are also expensive to compute. We can plot each of the coefficient approximations as the normalized radian frequency varies up to &#969;<sub>n</sub> = &#960;. We can see that these curves are not self-similar, thus cannot be normalized and rescaled for different frequency ranges and sample rates as the exponential curves can. 
 
-The following plots show how the magnitude and phase responses (second and third plots) vary with the four coefficient curves across a range of cutoff frequencies (vertical dashed line), compared with the equivalent analog filter response.
-
 ![Coefficients](/images/coeffs_light.png)
 
 Unsigned 16-bit integer lookup tables of length 1024 for these three variants (scaled to Q16) can be generated using
@@ -557,9 +555,13 @@ For example, at f<sub>s</sub> = 16kHz, an exact filter coefficient table mapping
 
 Therefore the sample rate must be known at the time the table is generated to obtain accurate cutoff frequencies. 
 
-A more flexible option for cutoff frequencies much less than f<sub>s</sub>/2 is to note that each coefficient table is approximately exponential for low frequencies, where the frequency &#969;<sub>n</sub> serves as a usable approximation of &#945;. This approximation yields a stable filter for &#969;<sub>n</sub> < 1, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
+A more flexible option for cutoff frequencies much less than f<sub>s</sub>/2 is to note that each coefficient table is approximately exponential for low frequencies. The following plots show how the magnitude and phase responses (second and third plots) vary with the three coefficient curves across a range of cutoff frequencies (vertical dashed line), compared with the equivalent analog filter response. 
+
+The red curves, represent (top to bottom), the normalized frequency stored in the exponential table, and the magnitude and phase response of the filter when using the frequency as an approximation for the coefficient, which not only requires no additional computation, but allows for dynamic scaling, demonstrated below in Options 2 and 3.
 
 ![Coefficients and Frequency Response](/images/coeffs_light.gif)
+
+Note that this approximation &#969;<sub>n</sub> ≈ &#945; yields a stable filter for &#969;<sub>n</sub> < 1, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
 
 This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with, for musical purposes, functionally equivalent frequency responses over a cutoff frequency range of (0.2, 2000)Hz. 
 
