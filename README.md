@@ -18,12 +18,12 @@ Memory use is minimized by storing pre-computed, normalized tables in flash memo
 
 ## 2 Introduction
 
-This section contains a brief library motivation for the uninitiated. Readers for whom sampling, aliasing, reconstruction, timers, ADCs, and interrupts are familiar concepts might skip directly to examples in Section 3. 
+This section contains a brief motivation for the library's features. Readers for whom sampling, aliasing, reconstruction, timers, ADCs, and interrupts are familiar concepts might skip directly to examples in Section 3. 
 
 ### The Importance of Sample Rate
 In discrete time, the Nyquist-Shannon sampling theorem shows that it is impossible to generate or reproduce frequencies higher than half the sample rate (often called the Nyquist rate). In fact, the stepped waveform produced by a digital to analog converter (DAC) will contain frequencies above this rate, but they are merely frequency-shifted copies of the baseband signal, or aliases. 
 
-The job of the reconstruction filter that follows a DAC is to significantly attenuate everything above the Nyquist rate. A high order analog low-pass filter can give good attenuation at Nyquist and a sharp transition band, i.e. a nice, wide passband that gives the unity gain treatment to frequencies approaching Nyquist before it starts a sharp decline. This of course entails lots of op amps, cost, and board space plus added sensitivity to component tolerances.
+The job of the reconstruction filter that follows a DAC is to significantly attenuate everything above the Nyquist rate. A high order analog low-pass filter can give good attenuation at Nyquist and a sharp transition band, i.e. a nice, wide passband that applies unity gain to frequencies approaching Nyquist before it starts a sharp decline. This of course entails lots of op amps, cost, and board space plus added sensitivity to component tolerances.
 
 Higher sample rates lessen the requirements on reconstruction filters. They also  improve the quality of harmonically-rich waveforms or harmonic distortion, where we could easily find ourselves naively trying to synthesize upper partials that *want* to be above Nyquist, only to find themselves folded back into the audio band as aliases--just as a consequence of discrete time itself, i.e. where even the steepest reconstruction filter won't save us. 
 
@@ -36,7 +36,7 @@ To get the most out of the processor, LibAG replaces Arduino staples like `delay
 
 What we need is a fuction that runs at a regular sample rate, and a way of converting from digital to analog and vice versa that takes up as little of the sample period as possible--leaving the rest for DSP code. LibAG's configuration of the ADC, for example, reduces the overhead for conversions to under 2&#956;s by offloading most of the work to the ADC itself. 
 
-Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and understanding them is not rocket surgery. They have an 8- or 16-bit value that increments by 1 on the edge of a clock, and another 8- or 16-bit value we can compare with the first. 
+Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and they are not terribly complicated. They have an 8- or 16-bit value that increments by 1 on the edge of a clock, and another 8- or 16-bit value we can compare with the first. 
 
 We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match sets a pin high or low. In Clear Timer on Compare Match (CTC) mode, a compare match resets the value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
 
@@ -47,7 +47,7 @@ Our timing needs (churning out samples at a regular rate) can be handled with no
 ## 3 Peripheral Drivers: Basic Usage 
 ### 3.1 Timers in PWM and CTC Modes
 
-In this example, Timer 0 gives us a 16kHz sample rate to render a low-frequency sawtooth wave. Timer 2 provides a PWM output at 62.5kHz.
+In this example, Timer 0 gives us a 16kHz sample rate to render sawtooth wave. Timer 2 provides a PWM output at 62.5kHz.
 
 ```C
 #include <Timer.h>
@@ -72,13 +72,13 @@ ISR(TIMER0_COMPA_vect) {            // Called at 16kHz (every 62.5us)
 }
 ```
 
-Notice that sample rates and PWM rates are determined in part by prescalers, which are values used to divide the system clock (16MHz on the Arduino Uno, Nano, Mega) that drives the timer. In the above example, timer 0 ticks forward at one eighth the rate of a timer 2. 
+Notice that sample rates and PWM rates are determined in part by prescalers, which are values used to divide the system clock (16MHz on the Arduino Uno, Nano, Mega) that drives the timer. In the above example, Timer 0 ticks forward at one eighth the rate of Timer 2. 
 
-Prescaler options for Timer 0 and Timer 1 include {1, 8, 64, 256, 1024}. Timer 2 has additional prescaler options including {1, 8, 32 64, 128, 256, 1024}. 
+Prescaler options for Timers 0 and 1 include {1, 8, 64, 256, 1024}. Timer 2 has additional prescaler options including {1, 8, 32 64, 128, 256, 1024}. 
 
-We're using 8-bit PWM so timer 2's period (the PWM rate) is the time it takes the timer to count from 0 to 255 and overflow back to 0. To output a PWM signal to pin OCR2A, we supply an 8-bit value to the timer's `pwm_write_a()` method. The timer compares this value to its count and toggles the OCR2A pin when they match. 
+We're using 8-bit PWM so Timer 2's period (the PWM rate) is the time it takes the timer to count from 0 to 255 and overflow back to 0, or 256 ticks of the *prescaled* system clock. To output a PWM signal to pin OCR2A, we supply an 8-bit value to the timer's `pwm_write_a()` method. The timer compares this value to its count and toggles the OCR2A pin when they match. 
 
-Timer 0 controls sample timing using CTC mode and a larger prescaler. Recall that CTC mode calls a timer channel's interrupt service routine *and resets the timer count*, meaning the rate is a function of the compare value rather than the timer's full resolution. 
+Timer 0 controls sample timing using CTC mode and a larger prescaler. Recall that CTC mode calls a timer channel's interrupt service routine on compare match *and resets the timer count*, meaning the rate is a function of the compare value rather than the timer's full resolution. 
 
 *Side note: we could have divided the 16-bit phase by 256 to obtain an 8-bit output value, but division is generally slow and to be avoided if possible. Divison by a power of two is much, much faster via bit shifting.*
 
@@ -104,7 +104,7 @@ void setup() {
 ...
 	
 ISR(ADC_vect) {                 // Called after ADC conversion completes
-	adc.update();               // Scans the current channel and stores result
+	adc.update();               // Stores the result; selects next channel
 	a0 = adc.results[0] >> 2;   // Convert ch 0 result to 8-bit
 	a1 = adc.results[1] >> 2;   // Convert ch 1 result to 8-bit
 	a0 = (a0 * a1) >> 8;        // 8-bit UQ multiply (see sec 4.1)
@@ -145,7 +145,7 @@ ISR(TIMER0_COMPA_vect) {.       // Called on channel A compare match
 }
 
 ISR(ADC_vect) {.    // Called after ADC conversion completes
-	adc.update();   // Scans the current channel and stores result
+	adc.update();   // Stores the result; selects next channel
 	a0 = adc.results[0] >> 2;   // Convert ch 0 result to 8-bit
 	a1 = adc.results[1] >> 2;   // Convert ch 1 result to 8-bit
 	a0 = (a0 * a1) >> 8;        // 8-bit multiply
@@ -178,7 +178,7 @@ ISR(INT0_vect) {   // Called on INT0 rising edge; triggers ADC conversion
 }
 
 ISR(ADC_vect) {     // Called after ADC conversion completes
-	adc.update();   // Scan the current channel and store result
+	adc.update();   // Stores the result; selects next channel
 	sample = adc.results[0] >> 2;   // Scale 10- to 8-bit
 	timer2.pwm_write_a(sample);     // Write to pin OCR2A
 }
@@ -211,7 +211,7 @@ ISR(INT0_vect) {     // Clalled on INT0 rising edge; triggers ADC conversion
 }
 
 ISR(ADC_vect) {      // Called after ADC conversion completes
-	adc.update();    // Scan the current channel and store result
+	adc.update();    // Stores the result; selects next channel
 	timer1.pwm_write_a(adc.results[0]); // Write to pin OCR1A
 }
 ```
@@ -220,17 +220,19 @@ Note that raising the timer's resolution lowers the PWM rate. Although we can st
 
 ### 3.6 External Digital to Analog Converter (DAC)
 
-The rate/resolution trade-off can be circumvented (at least at audio rates) by using an external DAC like the MCP4921/4922, which are one- and two-channel 12-bit DACs that use a simple Serial Peripheral Interface (SPI) protocol. From the DAC's datasheet, we learn that the DAC takes the following 16-bit control word:
+The rate/resolution trade-off can be circumvented (at least at audio rates) by using an external DAC like the MCP4921/4922, which are one- and two-channel 12-bit DACs that use a simple, but relatively high-speed, Serial Peripheral Interface (SPI) protocol. From the DAC's datasheet, we learn that the DAC takes the following 16-bit control word:
 
 15 | 14 | 13 | 12 | 11 | 10 | ... | 1 | 0
 --|--|--|--|--|--|--|--|--
 A'/B|BUF|GA'|SHDN'|D11|D10|...|D1|D0
 
-From most significant to least significant bits, we have the channel selection (0 = A, 1 = B), voltage reference buffer enable, 2x gain setting (active low), and shutdown (active low), followed by the 12 bits comprising an audio sample.
+From most significant to least significant bits, we have the channel selection (0 = A, 1 = B), voltage reference buffer enable, 2x gain setting (active low), and shutdown (active low), followed by the 12 bits comprising an audio sample. 
 
-The AVR processors have an SPI peripheral which, at its maximum SPI clock rate of 4MHz can shift the control word's sixteen bits out at rates up to 4MHz/16 = 250kHz, ensuring 12-bit resolution at any sample rate we could achieve. 
+The AVR processors have an SPI peripheral which, at its maximum SPI clock rate of 4MHz can shift the control word's sixteen bits out at rates up to 4MHz/16 = 250kHz, ensuring 12-bit resolution at any sample rate we could achieve on an AVR. 
 
-The peripheral generates the SPI clock and data out signals on the SCK and MOSI pins, respectively. Since we're not receiving any data from the DAC, we don't need to use the MISO pin. LibAG's `SPIMaster` class configures the SPI and shifts out 8- or 16-bit control words. The user must configure a CS (chip select) pin, clear it before transmission, and set it after. 
+The peripheral generates the 4MHz SPI clock and data out signals on the SCK and MOSI pins, respectively. Since we're not receiving any data from the DAC, we don't need to use the MISO pin. LibAG's `SPIMaster` class configures the SPI and shifts out 8- or 16-bit control words. 
+
+The user must configure a CS (chip select) pin, which tells the DAC when to read data on MOSI line. CS is normally active low, so clear it before transmission, and set it after. Note that you can have multiple DACs sharing connections to SCK and MOSI as long as you have a separate CS pin for each device.
 
 Revisiting the first example, we could now synthesize a sawtooth at 12-bit amplitude resolution without PWM lowering the effective Nyquist rate. 
 
@@ -262,13 +264,15 @@ ISR(TIMER0_COMPA_vect) {
 }
 ```
 
-*Note we replace even Arduino's `digitalWrite()` with faster, low-level alternatives to clearing and setting pins on (in this case) `PORTB`'s pin 0 directly. That's after configuring the pin as an output using the port's data direction register `DDRB`.*
+*Note we replace even Arduino's `digitalWrite()` with slightly faster, low-level alternatives to clearing and setting pins on (in this case) `PORTB`'s pin 0. That's after configuring the pin as an output by setting the corresponding bit in the port's data direction register `DDRB`.*
 
-## 4 Fixed Point Format
+## 4 Fixed Point Formats
 
-Due to the AVR processors' lack of dedicated hardware for floating point math, we use fixed point math whenever efficiency is critical, as in our sampling ISRs or any processing or parameter setting operation that's called from an ISR. 
+Due to the AVR processors' lack of dedicated hardware for floating point math, we use fixed point math whenever efficiency is critical, as in our sampling ISRs or any processing or parameter setting operation that's called from an ISR. A 32-bit floating point addition, for example, costs about 7&#956;s on an ATmega328P compared to a 32-bit integer addition's 2&#956;s.
 
 Fixed point uses integer types, only we *treat* them as representing non-integer values over fixed intervals, and the processor's integer arithmetic logic unit (ALU) is none the wiser. We just have to take a few extra precautions concerning precision and integer overflow.
+
+Here I'll use the 8-bit fixed point types to illustrate, but `FixedPoint.h` contains analogous functions for 16- and 32-bit fixed point types. 
 
 ### 4.1 Unsigned (UQ8, UQ16, UQ32)
 
@@ -384,7 +388,7 @@ uint8_t note = /* MIDI note number in [0, 127] */
 float freq = 440.0f * powf(2.0f, (note-69)/12.0f);
 ```
 
-Similarly, we can compute the base of an exponential sweep for specified nonzero endpoints to map a 10-bit ADC conversion result.
+Alternatively, we can compute the base of an exponential sweep for specified nonzero endpoints to map a 10-bit ADC conversion result.
 
 ```C
 float base = powf((2000.0f/20.0f), 1.0f/1023);
@@ -459,7 +463,7 @@ Rather than generate separate tables over specific Q16 frequency ranges, it is u
 
 ![ExpTable](/images/exp.png)
 
-Therefore `tablegen` generates exponential tables with specified ratios 
+Therefore `tablegen` generates exponential table`s with specified ratios 
 
 ```
 > python tablegen.py exp <ratio>
@@ -563,7 +567,7 @@ The red curves, represent (top to bottom), the normalized frequency stored in th
 
 Note that this approximation &#969;<sub>n</sub> ≈ &#945; yields a stable filter for &#969;<sub>n</sub> < 1, or <img src="https://render.githubusercontent.com/render/math?math=f < \frac{1}{\pi} \approx 0.3183 f_s">.
 
-This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with, for musical purposes, functionally equivalent frequency responses over a cutoff frequency range of (0.2, 2000)Hz. 
+This means that we can often use normalized exponential tables with `PgmTable16` as filter coefficients without significant inaccuracy in the magnitude response. For example, the following three coefficient tables will result in filters with (for musical purposes) functionally equivalent frequency responses over a cutoff frequency range of (0.2, 2000)Hz. 
 
 #### Option 1
 The following yields accurate cutoff frequencies over its range as long as f<sub>s</sub> = 16kHz. 
@@ -695,7 +699,7 @@ This example uses `OnePole16` to filter a square wave, writing the filter's low-
 
 ### 4_DAC
 
-This example uses `MCP4922`, a subclass of `SPIMaster`, to control the external dual 12-bit SPI DAC of the same name. Its two channels are used to output sinusoidal waveforms offset by 90 degrees using the locally-defined `Quad16` oscillator class, is a subclass of `Wavetable16`.
+This example uses `MCP4922`, a subclass of `SPIMaster`, to control the external dual 12-bit SPI DAC of the same name. Its two channels are used to output sinusoidal waveforms offset by 90 degrees using `Quad16`, a subclass of `Wavetable16`.
 
 ### A note on sample timing
 
