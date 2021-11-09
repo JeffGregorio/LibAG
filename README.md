@@ -40,7 +40,7 @@ Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and they ar
 
 We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match toggles a pin. In Clear Timer on Compare Match (CTC) mode, a compare match resets the count value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
 
-We can use timers as DACs in PWM mode if we configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why trying to encode, say, the amplitude of a 2000Hz sine wave on the width of a 960Hz pulse is a fool's errand. 
+We can use timers as DACs in PWM mode, where we encode our signal on the width of the pulse, and use a low-pass reconstruction filter to take kind of "average" over the period of the pulse to recover the signal. The catch is that for audio, we have to configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why trying to encode, say, the amplitude of a 2000Hz sine wave on the width of a 960Hz pulse is a fool's errand. 
 
 Our timing needs (churning out samples at a regular rate) can be handled with essentially no overhead by timers in CTC mode, by external clock signals, or even by the ADC alone. To do this, we'll do our processing in ISRs instead of `loop()`. 
 
