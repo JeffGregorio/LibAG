@@ -36,13 +36,13 @@ To get the most out of the processor, LibAG replaces Arduino staples like `delay
 
 What we need is a fuction that runs at a regular sample rate, and a way of converting from digital to analog and vice versa that takes up as little of the sample period as possible--leaving the rest for DSP code. LibAG's configuration of the ADC, for example, reduces the overhead for conversions to under 2&#956;s by offloading most of the work to the ADC itself. 
 
-Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and they are not terribly complicated. They have an 8- or 16-bit value that increments by 1 on the edge of a clock, and another 8- or 16-bit value we can compare with the first. 
+Timers are the workhorses of `delay()`, `millis()`, `analogWrite()`, and they are not terribly complicated. They have an 8- or 16-bit count value that increments on the edge of a clock. When the count gets to 255 or 65535, respectively, it overflows (resets to zero) and continues counting and overflowing periodically. Timers also have another 8- or 16-bit value we can compare with the count. 
 
-We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match sets a pin high or low. In Clear Timer on Compare Match (CTC) mode, a compare match resets the value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
+We can make one of a few things happen when the values match. In Pulse Width Modulation (PWM) mode, a compare match toggles a pin. In Clear Timer on Compare Match (CTC) mode, a compare match resets the count value and calls an Interrupt Service Routine (ISR)--a kind of function that gets called by a peripheral. 
 
-We can use timers as DACs in PWM mode if we configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why modulating, say, a 2000Hz sine wave on a 960Hz pulse is a fool's errand. 
+We can use timers as DACs in PWM mode if we configure much higher PWM rates than the 960Hz used by `analogWrite()`--you can likely guess why trying to encode, say, the amplitude of a 2000Hz sine wave on the width of a 960Hz pulse is a fool's errand. 
 
-Our timing needs (churning out samples at a regular rate) can be handled with no overhead by timers in CTC mode, by external clock signals, or even by the ADC alone. To do this, we'll do our processing in ISRs instead of `loop()`. 
+Our timing needs (churning out samples at a regular rate) can be handled with essentially no overhead by timers in CTC mode, by external clock signals, or even by the ADC alone. To do this, we'll do our processing in ISRs instead of `loop()`. 
 
 ## 3 Peripheral Drivers: Basic Usage 
 ### 3.1 Timers in PWM and CTC Modes
