@@ -509,7 +509,7 @@ ISR(ADC_vect) {
 
 ### 6.3 Filter Coefficients 
 
-The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` implement a multimode filter with variable cutoff frequency. The filter implements the difference equation of an exponential moving average filter
+The `OnePole16` and `OnePole16_LF` (low-frequency) objects declared in `IIR.h` implement a first-order low pass filter (see [Wikipedia](https://en.wikipedia.org/wiki/Low-pass_filter#Discrete-time_realization) for a derivation). The filter's difference equation is
 
 <p align="center">
 	<img src="https://render.githubusercontent.com/render/math?math=y[n] = y[n-1] %2B \alpha(x[n] - y[n-1])">
